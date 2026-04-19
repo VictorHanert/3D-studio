@@ -1,0 +1,55 @@
+{
+  "defaultSnapDistance": 0.5,
+  "models": {
+    "CONNECT_MODULAR_SOFA_LEFT_ARMREST_A": {
+      "points": [{ "id": "right", "side": "right", "type": "armrest_right", "depthSide": "back" }]
+    },
+    "CONNECT_MODULAR_SOFA_LEFT_ARMREST_LOUNGE_J": {
+      "points": [{ "id": "right", "side": "right", "type": "armrest_right", "depthSide": "back" }]
+    },
+    "CONNECT_MODULAR_SOFA_RIGHT_ARMREST_B": {
+      "points": [{ "id": "left", "side": "left", "type": "armrest_left", "depthSide": "back" }]
+    },
+    "CONNECT_MODULAR_SOFA_LONG_CENTRE_C": {
+      "points": [
+        { "id": "left", "side": "left", "type": "centre_left", "depthSide": "back" },
+        { "id": "right", "side": "right", "type": "centre_right", "depthSide": "back" }
+      ]
+    },
+    "CONNECT_MODULAR_SOFA_SHORT_CENTRE_D": {
+      "points": [
+        { "id": "left", "side": "left", "type": "centre_left", "depthSide": "back" },
+        { "id": "right", "side": "right", "type": "centre_right", "depthSide": "back" }
+      ]
+    },
+    "CONNECT_MODULAR_SOFA_CORNER_E": {
+      "points": [
+        { "id": "right", "side": "right", "type": "corner_right", "depthSide": "back" },
+        { "id": "left", "side": "left", "type": "corner_left", "depthSide": "front" }
+      ]
+    },
+    "CONNECT_MODULAR_SOFA_LEFT_OPEN-ENDED_F": {
+      "points": [{ "id": "right", "side": "right", "type": "open_ended_right", "depthSide": "back" }]
+    },
+    "CONNECT_MODULAR_SOFA_LONG_OTTOMAN_H": {
+      "points": [
+        { "id": "left", "side": "left", "type": "centre_left", "depthSide": "back" },
+        { "id": "right", "side": "right", "type": "centre_right", "depthSide": "back" }
+      ]
+    }
+  },
+  "rules": [
+    { "typeA": "armrest_right", "typeB": "centre_left", "snapDistance": 0.5 },
+    { "typeA": "armrest_right", "typeB": "armrest_left", "snapDistance": 0.5 },
+    { "typeA": "centre_right", "typeB": "centre_left", "snapDistance": 0.5 },
+    { "typeA": "centre_right", "typeB": "armrest_left", "snapDistance": 0.5 },
+    { "typeA": "corner_right", "typeB": "centre_left", "snapDistance": 0.5 },
+    { "typeA": "corner_right", "typeB": "armrest_left", "snapDistance": 0.5 },
+    { "typeA": "corner_left", "typeB": "centre_right", "snapDistance": 0.5 },
+    { "typeA": "corner_left", "typeB": "armrest_right", "snapDistance": 0.5 },
+    { "typeA": "corner_left", "typeB": "corner_right", "snapDistance": 0.5 },
+    { "typeA": "open_ended_right", "typeB": "centre_left", "snapDistance": 0.5 },
+    { "typeA": "open_ended_right", "typeB": "armrest_left", "snapDistance": 0.5 },
+    { "typeA": "open_ended_right", "typeB": "corner_left", "snapDistance": 0.5 }
+  ]
+}
