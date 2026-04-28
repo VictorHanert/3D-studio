@@ -21,6 +21,7 @@ export type {
     ModuleListResponse,
     PlannerState,
 } from './types';
+export type { CollisionMode } from './CollisionDetection';
 
 // Constants
 export {
@@ -41,3 +42,8 @@ export { SnapManager } from '../managers/SnapManager';
 // Utilities
 export { ThumbnailGenerator } from './ThumbnailGenerator';
 export { ResourceTracker } from './ResourceTracker';
+export {
+    DEFAULT_COLLISION_MODE,
+    createEmptyCollisionMetrics,
+    resetCollisionMetrics,
+} from './CollisionDetection';

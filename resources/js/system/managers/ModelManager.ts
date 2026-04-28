@@ -5,6 +5,7 @@ import type { ModelData, ModelBounds } from '../utilities/types';
 import { SceneManager } from './SceneManager';
 import { SpawnManager } from './SpawnManager';
 import { ResourceTracker } from '../utilities/ResourceTracker';
+import type { CollisionMetrics, CollisionMode } from '../utilities/CollisionDetection';
 
 /**
  * Manages loading, positioning, rotating, and deleting 3D models
@@ -17,7 +18,7 @@ export class ModelManager {
     private readonly spawnManager: SpawnManager;
     private readonly modelCache = new Map<string, THREE.Group>();
     private readonly resourceTrackers = new Map<string, ResourceTracker>();
-    
+
     constructor(
         sceneManager: SceneManager,
         models: Ref<ModelData[]>,
@@ -30,6 +31,22 @@ export class ModelManager {
         this.spawnManager = new SpawnManager(models);
     }
 
+    public setCollisionMode(mode: CollisionMode): void {
+        this.spawnManager.setCollisionMode(mode);
+    }
+
+    public getCollisionMode(): CollisionMode {
+        return this.spawnManager.getCollisionMode();
+    }
+
+    public getCollisionMetrics(): CollisionMetrics {
+        return this.spawnManager.getCollisionMetrics();
+    }
+
+    public resetCollisionMetrics(): void {
+        this.spawnManager.resetCollisionMetrics();
+    }
+
     private async loadGLTFModel(path: string): Promise<THREE.Group> {
         // Check cache first
         if (this.modelCache.has(path)) {
@@ -40,11 +57,11 @@ export class ModelManager {
         const tracker = new ResourceTracker();
         const gltf = await this.loader.loadAsync(path);
         const model = tracker.track(gltf.scene);
-        
+
         // Store original for cloning and track its resources
         this.modelCache.set(path, model);
         this.resourceTrackers.set(path, tracker);
-        
+
         return model.clone();
     }
 
@@ -80,7 +97,7 @@ export class ModelManager {
 
             // Calculate bounds BEFORE positioning
             const bounds = this.calculateModelBounds(model);
-            
+
             // Find spawn position: uses provided position if restoring, otherwise calculates via SpawnManager
             const spawnPosition = position || this.spawnManager.findSpawnPosition(bounds.size);
             model.position.copy(spawnPosition);

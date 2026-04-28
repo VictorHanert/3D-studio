@@ -1,5 +1,6 @@
 import type * as THREE from 'three';
 import type { GroundTextureType } from './GroundTextureManager';
+import type { CollisionMode } from './CollisionDetection';
 
 /**
  * 3D model data structure stored in the scene
@@ -92,6 +93,7 @@ export interface PlannerState {
     controlPosition: Position2D;
     isInitialized: boolean;
     groundTextureType: GroundTextureType;
+    collisionMode: CollisionMode;
 }
 
 export type SnapSide = 'left' | 'right' | 'front' | 'back';
