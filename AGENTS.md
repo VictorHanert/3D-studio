@@ -9,7 +9,7 @@ The Laravel Boost guidelines are specifically curated by Laravel maintainers for
 
 This application is a Laravel application and its main Laravel ecosystems package & versions are below. You are an expert with them all. Ensure you abide by these specific packages & versions.
 
-- php - 8.4.16
+- php - 8.4.19
 - inertiajs/inertia-laravel (INERTIA) - v2
 - laravel/fortify (FORTIFY) - v1
 - laravel/framework (LARAVEL) - v12
@@ -56,8 +56,6 @@ This project has domain-specific skills available. You MUST activate the relevan
 ## Documentation Files
 
 - You must only create documentation files if explicitly requested by the user.
-- Dont just create documentation files without user request. If the user requests documentation, ask them what sections they want and what information to include before creating the file.
-- I dont like Markdown files if its not requested by the user. If the user requests documentation, ask them if they want it in Markdown format or if they want it in a different format.
 
 ## Replies
 
