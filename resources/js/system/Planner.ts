@@ -6,13 +6,14 @@ import { CameraManager } from './managers/CameraManager';
 import { ModelManager } from './managers/ModelManager';
 import { InteractionManager } from './managers/InteractionManager';
 import { RendererManager } from './managers/RendererManager';
-import { RenderingPipeline } from './managers/RenderingPipeline';
+import { RenderingPipeline, type FrameMetrics } from './managers/RenderingPipeline';
 import { SnapManager } from './managers/SnapManager';
 import { PersistenceManager } from './managers/PersistenceManager';
 
 import { GroundTextureManager, type GroundTextureType } from './utilities/GroundTextureManager';
 import { ThumbnailGenerator } from './utilities/ThumbnailGenerator';
 import type { PlannerState, ModuleListResponse, SerializedModel, ConfigurationData } from './utilities/types';
+import { DEFAULT_COLLISION_MODE, type CollisionMetrics, type CollisionMode } from './utilities/CollisionDetection';
 
 export class Planner {
     private static instance: Planner | null = null;
@@ -38,6 +39,7 @@ export class Planner {
             controlPosition: { x: 0, y: 0 },
             isInitialized: false,
             groundTextureType: 'neutral',
+            collisionMode: DEFAULT_COLLISION_MODE,
         });
 
         this.rendererManager = new RendererManager();
@@ -77,6 +79,11 @@ export class Planner {
         const savedTextureType = this.loadGroundTexturePreference();
         if (savedTextureType) {
             void this.changeGroundTexture(savedTextureType);
+        }
+
+        const savedCollisionMode = this.loadCollisionModePreference();
+        if (savedCollisionMode) {
+            this.setCollisionMode(savedCollisionMode);
         }
 
         this.state.isInitialized = true;
@@ -124,7 +131,7 @@ export class Planner {
     private setupRenderingPipeline(renderer: THREE.WebGLRenderer): void {
         const scene = this.sceneManager!.getScene();
         const camera = this.cameraManager!.getCamera();
-        
+
         if (!scene || !camera) return;
 
         this.renderingPipeline.startRenderLoop(renderer, scene, camera);
@@ -168,7 +175,7 @@ export class Planner {
         if (!this.modelManager) return;
         const modelIndex = this.state.models.findIndex(m => m.id === modelId);
         if (modelIndex === -1) return;
-        
+
         const model = this.state.models[modelIndex];
         this.modelManager.disposeModel(model);
         this.state.models.splice(modelIndex, 1);
@@ -207,6 +214,80 @@ export class Planner {
         return saved as GroundTextureType | null;
     }
 
+    public setCollisionMode(mode: CollisionMode): void {
+        this.state.collisionMode = mode;
+        this.modelManager?.setCollisionMode(mode);
+        this.interactionManager?.setCollisionMode(mode);
+        localStorage.setItem('planner.collisionMode', mode);
+    }
+
+    public getCollisionMode(): CollisionMode {
+        return this.state.collisionMode;
+    }
+
+    public resetCollisionMetrics(): void {
+        this.modelManager?.resetCollisionMetrics();
+        this.interactionManager?.resetCollisionMetrics();
+    }
+
+    public resetFrameMetrics(): void {
+        this.renderingPipeline.resetFrameMetrics();
+    }
+
+    public getCollisionMetrics(): { spawn: CollisionMetrics | null; interaction: CollisionMetrics | null } {
+        return {
+            spawn: this.modelManager?.getCollisionMetrics() ?? null,
+            interaction: this.interactionManager?.getCollisionMetrics() ?? null,
+        };
+    }
+
+    public getFrameMetrics(): FrameMetrics {
+        return this.renderingPipeline.getFrameMetrics();
+    }
+
+    public getBenchmarkReport(): {
+        timestamp: string;
+        collisionMode: CollisionMode;
+        frame: FrameMetrics;
+        collision: { spawn: CollisionMetrics | null; interaction: CollisionMetrics | null };
+        warnings: string[];
+    } {
+        const collision = this.getCollisionMetrics();
+        const frame = this.getFrameMetrics();
+        const mode = this.getCollisionMode();
+        const warnings: string[] = [];
+
+        const spawnSamples = collision.spawn?.[mode].samples ?? 0;
+        const interactionSamples = collision.interaction?.[mode].samples ?? 0;
+
+        if (spawnSamples === 0) {
+            warnings.push('No spawn samples collected in current mode. Add models after reset to benchmark spawn.');
+        }
+        if (interactionSamples === 0) {
+            warnings.push('No interaction samples collected in current mode. Drag models after reset to benchmark interaction.');
+        }
+        if (frame.samples === 0) {
+            warnings.push('No frame samples collected yet. Let the scene run for a few seconds before logging.');
+        }
+
+        return {
+            timestamp: new Date().toISOString(),
+            collisionMode: mode,
+            frame,
+            collision,
+            warnings,
+        };
+    }
+
+    private loadCollisionModePreference(): CollisionMode | null {
+        const saved = localStorage.getItem('planner.collisionMode');
+        if (saved === 'aabb' || saved === 'obb') {
+            return saved;
+        }
+
+        return null;
+    }
+
     // Serialize all models to persistence format
     public serializeModels(): SerializedModel[] {
         return this.state.models.map((model) => ({
@@ -238,7 +319,7 @@ export class Planner {
                 savedModel.position.y,
                 savedModel.position.z
             );
-            
+
             await this.loadModel(
                 savedModel.path,
                 savedPosition,
@@ -312,13 +393,13 @@ export class Planner {
         this.sceneManager?.cleanup();
         this.interactionManager?.cleanup();
         this.renderingPipeline.cleanup();
-        
+
         // Dispose WebGL renderer to free context
         const renderer = this.rendererManager.getRenderer();
         if (renderer) {
             this.rendererManager.disposeRenderer(renderer);
         }
-        
+
         this.rendererManager.cleanup();
 
         this.state.models = [];
