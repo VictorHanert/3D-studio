@@ -57,17 +57,27 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # Vi har brug for PHP og Composer her, fordi Wayfinder kalder 'php artisan'
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, pdo_sqlite, sqlite3
+
+      - name: Install PHP dependencies
+        run: composer install --no-interaction --prefer-dist
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
 
-      - name: Install dependencies
+      - name: Install Node dependencies
         run: npm ci
 
       - name: Run frontend tests
-        # Her tilføjer vi miljøvariablen for at omgå Laravels tjek
+        # Vi beholder BYPASS_ENV_CHECK fra tidligere for at undgå HMR-fejlen
         env:
           LARAVEL_BYPASS_ENV_CHECK: 1
         run: npm run test:coverage
