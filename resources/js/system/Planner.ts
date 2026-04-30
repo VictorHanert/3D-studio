@@ -311,10 +311,23 @@ export class Planner {
         }));
     }
 
+    public getSerializedData(): SerializedModel[] {
+        return this.serializeModels();
+    }
+
+    public async loadFromJSON(data: ConfigurationData | SerializedModel[]): Promise<void> {
+        const models = Array.isArray(data) ? data : data.models;
+        await this.loadSerializedModels(models ?? []);
+    }
+
     public async loadFromConfiguration(config: ConfigurationData): Promise<void> {
         if (!config || !config.models) return;
 
-        for (const savedModel of config.models) {
+        await this.loadSerializedModels(config.models);
+    }
+
+    private async loadSerializedModels(models: SerializedModel[]): Promise<void> {
+        for (const savedModel of models) {
             const savedPosition = new THREE.Vector3(
                 savedModel.position.x,
                 savedModel.position.y,
@@ -327,6 +340,11 @@ export class Planner {
                 savedModel.rotation,
                 savedModel.scale
             );
+
+            const loadedModel = this.state.models[this.state.models.length - 1];
+            if (loadedModel) {
+                loadedModel.modelKey = savedModel.module_key;
+            }
         }
     }
 

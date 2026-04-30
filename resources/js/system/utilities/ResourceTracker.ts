@@ -79,20 +79,17 @@ export class ResourceTracker {
      */
     dispose(): void {
         for (const resource of this.resources) {
-            // Handle Object3D removal from scene
-            if (resource instanceof THREE.Object3D) {
-                if (resource.parent) {
-                    resource.parent.remove(resource);
-                }
-            }
-
-            // Dispose if method exists
-            if ((resource as any).dispose) {
-                (resource as any).dispose();
-            }
+            this.disposeResource(resource, false);
         }
 
         this.resources.clear();
+    }
+
+    /**
+     * Dispose a single tracked node without clearing the entire tracker.
+     */
+    disposeNode(resource: any): void {
+        this.disposeResource(resource, true);
     }
 
     /**
@@ -115,5 +112,53 @@ export class ResourceTracker {
      */
     clear(): void {
         this.resources.clear();
+    }
+
+    private disposeResource(resource: any, removeFromTracker: boolean): void {
+        if (!resource) {
+            return;
+        }
+
+        if (Array.isArray(resource)) {
+            resource.forEach((item) => this.disposeResource(item, removeFromTracker));
+            return;
+        }
+
+        if (resource instanceof THREE.Object3D) {
+            this.disposeResource((resource as any).geometry, removeFromTracker);
+            this.disposeResource((resource as any).material, removeFromTracker);
+            this.disposeResource(resource.children, removeFromTracker);
+
+            if (resource.parent) {
+                resource.parent.remove(resource);
+            }
+        }
+
+        if (resource instanceof THREE.Material) {
+            for (const value of Object.values(resource)) {
+                if (value instanceof THREE.Texture) {
+                    this.disposeResource(value, removeFromTracker);
+                }
+            }
+
+            if ((resource as any).uniforms) {
+                for (const uniform of Object.values((resource as any).uniforms)) {
+                    if (uniform && typeof uniform === 'object') {
+                        const uniformValue = (uniform as any).value;
+                        if (uniformValue instanceof THREE.Texture || Array.isArray(uniformValue)) {
+                            this.disposeResource(uniformValue, removeFromTracker);
+                        }
+                    }
+                }
+            }
+        }
+
+        if ((resource as any).dispose) {
+            (resource as any).dispose();
+        }
+
+        if (removeFromTracker) {
+            this.resources.delete(resource);
+        }
     }
 }

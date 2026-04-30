@@ -82,6 +82,29 @@ export class SnapManager {
         return candidatePosition.clone().add(bestMatch.delta);
     }
 
+    public checkCompatibility(movingModel: ModelData, otherModel: ModelData): boolean {
+        if (!this.config) {
+            return false;
+        }
+
+        const movingDefinition = this.config.models[movingModel.modelKey];
+        const otherDefinition = this.config.models[otherModel.modelKey];
+
+        if (!movingDefinition || !otherDefinition) {
+            return false;
+        }
+
+        for (const movingPoint of movingDefinition.points) {
+            for (const otherPoint of otherDefinition.points) {
+                if (this.getRule(movingPoint.type, otherPoint.type)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
     private getRule(typeA: string, typeB: string): SnapRule | null {
         if (!this.config) return null;
 
