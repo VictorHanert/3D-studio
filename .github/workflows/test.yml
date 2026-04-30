@@ -67,6 +67,9 @@ jobs:
         run: npm ci
 
       - name: Run frontend tests
+        # Her tilføjer vi miljøvariablen for at omgå Laravels tjek
+        env:
+          LARAVEL_BYPASS_ENV_CHECK: 1
         run: npm run test:coverage
 
       - name: Upload frontend coverage
