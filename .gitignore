@@ -30,3 +30,5 @@ yarn-error.log
 /.github/*
 !/.github/workflows/
 /.zed
+/coverage
+/build

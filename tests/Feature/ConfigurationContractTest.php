@@ -11,6 +11,7 @@ it('stores and lists configurations with expected json shape', function () {
         'configuration_data' => [
             'models' => [
                 [
+                    'module_key' => 'CONNECT_MODULAR_SOFA_LEFT_ARMREST_A',
                     'path' => 'models/sofa.glb',
                     'position' => ['x' => 0, 'y' => 0, 'z' => 0],
                     'rotation' => ['x' => 0, 'y' => 0, 'z' => 0],

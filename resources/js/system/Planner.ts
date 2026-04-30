@@ -291,6 +291,7 @@ export class Planner {
     // Serialize all models to persistence format
     public serializeModels(): SerializedModel[] {
         return this.state.models.map((model) => ({
+            module_key: model.modelKey,
             path: model.path,
             position: {
                 x: model.object.position.x,

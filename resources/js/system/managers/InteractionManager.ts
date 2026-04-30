@@ -1,14 +1,16 @@
 import * as THREE from 'three';
-import { OBB } from 'three/examples/jsm/math/OBB.js';
 import type { OrbitControls } from 'three-stdlib';
 import type { Ref } from 'vue';
 import type { ModelData, Position2D } from '../utilities/types';
 import { PERFORMANCE_CONFIG, SCENE_CONFIG } from '../utilities/constants';
 import {
     DEFAULT_COLLISION_MODE,
+    checkAABBCollision,
+    checkOBBCollision,
     type CollisionMetrics,
     type CollisionMode,
     createEmptyCollisionMetrics,
+    measureCollisionCheck,
     recordCollisionMetric,
     resetCollisionMetrics,
 } from '../utilities/CollisionDetection';
@@ -221,58 +223,33 @@ export class InteractionManager {
     }
 
     private resolveCollisions(position: THREE.Vector3, movingModel: ModelData): THREE.Vector3 {
-        const startTime = performance.now();
+        const measurement = measureCollisionCheck(() => {
+            return this.collisionMode === 'obb'
+                ? this.resolveCollisionsWithObb(position, movingModel)
+                : this.resolveCollisionsWithAabb(position, movingModel);
+        });
 
-        const resolvedPosition = this.collisionMode === 'obb'
-            ? this.resolveCollisionsWithObb(position, movingModel)
-            : this.resolveCollisionsWithAabb(position, movingModel);
+        recordCollisionMetric(
+            this.collisionMetrics,
+            this.collisionMode,
+            measurement.elapsedMicroseconds / 1000
+        );
 
-        const elapsedMs = performance.now() - startTime;
-        recordCollisionMetric(this.collisionMetrics, this.collisionMode, elapsedMs);
-
-        return resolvedPosition;
+        return measurement.result;
     }
 
     private resolveCollisionsWithAabb(position: THREE.Vector3, movingModel: ModelData): THREE.Vector3 {
-        const testBox = movingModel.cachedBounds.clone().translate(position);
-
         for (const otherModel of this.models.value) {
             if (otherModel.id === movingModel.id) {
                 continue;
             }
 
-            const otherBox = otherModel.cachedBounds.clone().translate(otherModel.object.position);
-
-            if (testBox.intersectsBox(otherBox)) {
-                // Check if boxes overlap
-                const intersection = new THREE.Box3();
-                intersection.copy(testBox).intersect(otherBox);
-
-                const size = new THREE.Vector3();
-                intersection.getSize(size);
-
-                // If intersection has positive volume in all dimensions, they overlap
-                if (size.x > 0 && size.y > 0 && size.z > 0) {
-                    return movingModel.object.position.clone();
-                }
-                // Allow if intersection has zero volume in any dimension
-            }
-        }
-
-        return position;
-    }
-
-    private resolveCollisionsWithObb(position: THREE.Vector3, movingModel: ModelData): THREE.Vector3 {
-        const movingObb = this.createModelObb(movingModel, position);
-
-        for (const otherModel of this.models.value) {
-            if (otherModel.id === movingModel.id) {
-                continue;
-            }
-
-            const otherObb = this.createModelObb(otherModel, otherModel.object.position);
-
-            if (movingObb.intersectsOBB(otherObb)) {
+            if (checkAABBCollision(
+                movingModel.cachedBounds,
+                position,
+                otherModel.cachedBounds,
+                otherModel.object.position
+            )) {
                 return movingModel.object.position.clone();
             }
         }
@@ -280,16 +257,31 @@ export class InteractionManager {
         return position;
     }
 
-    private createModelObb(model: ModelData, position: THREE.Vector3): OBB {
-        const obb = new OBB().fromBox3(model.bounds.box);
-        const transform = new THREE.Matrix4().compose(
-            position.clone(),
-            model.object.quaternion.clone(),
-            model.object.scale.clone()
-        );
+    private resolveCollisionsWithObb(position: THREE.Vector3, movingModel: ModelData): THREE.Vector3 {
+        for (const otherModel of this.models.value) {
+            if (otherModel.id === movingModel.id) {
+                continue;
+            }
 
-        obb.applyMatrix4(transform);
-        return obb;
+            if (checkOBBCollision(
+                movingModel.bounds.box,
+                {
+                    position,
+                    quaternion: movingModel.object.quaternion,
+                    scale: movingModel.object.scale,
+                },
+                otherModel.bounds.box,
+                {
+                    position: otherModel.object.position,
+                    quaternion: otherModel.object.quaternion,
+                    scale: otherModel.object.scale,
+                }
+            )) {
+                return movingModel.object.position.clone();
+            }
+        }
+
+        return position;
     }
 
     private findModelByMesh(mesh: THREE.Mesh): ModelData | null {

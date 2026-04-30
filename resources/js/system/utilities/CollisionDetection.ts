@@ -1,4 +1,18 @@
+import * as THREE from 'three';
+import { OBB } from 'three/examples/jsm/math/OBB.js';
+
 export type CollisionMode = 'aabb' | 'obb';
+
+export interface CollisionTransform {
+    position: THREE.Vector3;
+    quaternion: THREE.Quaternion;
+    scale: THREE.Vector3;
+}
+
+export interface TimedCollisionCheck<T> {
+    result: T;
+    elapsedMicroseconds: number;
+}
 
 export interface CollisionMetricSummary {
     samples: number;
@@ -22,6 +36,52 @@ export interface CollisionMetrics {
 export const DEFAULT_COLLISION_MODE: CollisionMode = 'aabb';
 const MAX_RECENT_SAMPLES = 2000;
 
+export function checkAABBCollision(
+    movingBounds: THREE.Box3,
+    movingPosition: THREE.Vector3,
+    otherBounds: THREE.Box3,
+    otherPosition: THREE.Vector3
+): boolean {
+    const movedBox = movingBounds.clone().translate(movingPosition);
+    const otherBox = otherBounds.clone().translate(otherPosition);
+
+    return movedBox.intersectsBox(otherBox);
+}
+
+export function checkOBBCollision(
+    movingBounds: THREE.Box3,
+    movingTransform: CollisionTransform,
+    otherBounds: THREE.Box3,
+    otherTransform: CollisionTransform
+): boolean {
+    const movingObb = createWorldObb(movingBounds, movingTransform);
+    const otherObb = createWorldObb(otherBounds, otherTransform);
+
+    return movingObb.intersectsOBB(otherObb);
+}
+
+export function createWorldObb(bounds: THREE.Box3, transform: CollisionTransform): OBB {
+    const obb = new OBB().fromBox3(bounds);
+    const matrix = new THREE.Matrix4().compose(
+        transform.position.clone(),
+        transform.quaternion.clone(),
+        transform.scale.clone()
+    );
+
+    obb.applyMatrix4(matrix);
+    return obb;
+}
+
+export function measureCollisionCheck<T>(callback: () => T): TimedCollisionCheck<T> {
+    const startMicroseconds = nowMicroseconds();
+    const result = callback();
+
+    return {
+        result,
+        elapsedMicroseconds: nowMicroseconds() - startMicroseconds,
+    };
+}
+
 export function createEmptyCollisionMetrics(): CollisionMetrics {
     return {
         aabb: createEmptyMetricSummary(),
@@ -35,7 +95,7 @@ export function recordCollisionMetric(metrics: CollisionMetrics, mode: Collision
     target.samples += 1;
     target.totalMs += elapsedMs;
     target.sumSquares += elapsedMs * elapsedMs;
-    target.minMs = Math.min(target.minMs, elapsedMs);
+    target.minMs = target.samples === 1 ? elapsedMs : Math.min(target.minMs, elapsedMs);
     target.lastMs = elapsedMs;
     target.maxMs = Math.max(target.maxMs, elapsedMs);
     target.averageMs = target.totalMs / target.samples;
@@ -74,11 +134,15 @@ function createEmptyMetricSummary(): CollisionMetricSummary {
     };
 }
 
-function percentile(sortedValues: number[], ratio: number): number {
+export function percentile(sortedValues: number[], ratio: number): number {
     if (sortedValues.length === 0) {
         return 0;
     }
 
     const index = Math.min(sortedValues.length - 1, Math.max(0, Math.floor((sortedValues.length - 1) * ratio)));
     return sortedValues[index];
+}
+
+function nowMicroseconds(): number {
+    return performance.now() * 1000;
 }

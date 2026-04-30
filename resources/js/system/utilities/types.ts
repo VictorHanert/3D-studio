@@ -44,6 +44,7 @@ export interface Position3D {
  * Serialized model for persistence
  */
 export interface SerializedModel {
+    module_key: string;
     path: string;
     position: Position3D;
     rotation: Position3D;
