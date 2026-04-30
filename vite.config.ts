@@ -36,7 +36,14 @@ export default defineConfig({
         }
     },
     server: {
+        host: '3d-studio.test',
+        port: 5173,
+        strictPort: true,
         hmr: {
+            host: '3d-studio.test',
+            protocol: 'wss',
+            port: 5173,
+            clientPort: 5173,
             timeout: 60000, // Increase HMR timeout to 60 seconds
         },
     },

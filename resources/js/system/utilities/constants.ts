@@ -2,8 +2,8 @@
  * Configuration constants for the 3D scene
  */
 export const SCENE_CONFIG = {
-    GROUND_SIZE: 8,
-    GROUND_HALF: 4,
+    GROUND_SIZE: 12,
+    GROUND_HALF: 6,
     BACKGROUND_COLOR: 0xf8fafc,
     GROUND_COLOR: 0xf1f5f9,
 } as const;

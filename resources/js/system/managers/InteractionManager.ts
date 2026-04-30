@@ -1,8 +1,17 @@
 import * as THREE from 'three';
+import { OBB } from 'three/examples/jsm/math/OBB.js';
 import type { OrbitControls } from 'three-stdlib';
 import type { Ref } from 'vue';
 import type { ModelData, Position2D } from '../utilities/types';
 import { PERFORMANCE_CONFIG, SCENE_CONFIG } from '../utilities/constants';
+import {
+    DEFAULT_COLLISION_MODE,
+    type CollisionMetrics,
+    type CollisionMode,
+    createEmptyCollisionMetrics,
+    recordCollisionMetric,
+    resetCollisionMetrics,
+} from '../utilities/CollisionDetection';
 import { SnapManager } from './SnapManager';
 
 /**
@@ -19,6 +28,8 @@ export class InteractionManager {
     private readonly controlPosition: Ref<Position2D>;
     private readonly groundHalf: number;
     private readonly snapManager: SnapManager | null;
+    private collisionMode: CollisionMode = DEFAULT_COLLISION_MODE;
+    private readonly collisionMetrics: CollisionMetrics = createEmptyCollisionMetrics();
 
     private readonly raycaster: THREE.Raycaster;
     private readonly pointer: THREE.Vector2;
@@ -64,6 +75,22 @@ export class InteractionManager {
         this.dragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
         this.dragIntersection = new THREE.Vector3();
         this.dragOffset = new THREE.Vector3();
+    }
+
+    public setCollisionMode(mode: CollisionMode): void {
+        this.collisionMode = mode;
+    }
+
+    public getCollisionMode(): CollisionMode {
+        return this.collisionMode;
+    }
+
+    public getCollisionMetrics(): CollisionMetrics {
+        return this.collisionMetrics;
+    }
+
+    public resetCollisionMetrics(): void {
+        resetCollisionMetrics(this.collisionMetrics);
     }
 
     setupInteractions(): void {
@@ -194,10 +221,25 @@ export class InteractionManager {
     }
 
     private resolveCollisions(position: THREE.Vector3, movingModel: ModelData): THREE.Vector3 {
+        const startTime = performance.now();
+
+        const resolvedPosition = this.collisionMode === 'obb'
+            ? this.resolveCollisionsWithObb(position, movingModel)
+            : this.resolveCollisionsWithAabb(position, movingModel);
+
+        const elapsedMs = performance.now() - startTime;
+        recordCollisionMetric(this.collisionMetrics, this.collisionMode, elapsedMs);
+
+        return resolvedPosition;
+    }
+
+    private resolveCollisionsWithAabb(position: THREE.Vector3, movingModel: ModelData): THREE.Vector3 {
         const testBox = movingModel.cachedBounds.clone().translate(position);
 
         for (const otherModel of this.models.value) {
-            if (otherModel.id === movingModel.id) continue;
+            if (otherModel.id === movingModel.id) {
+                continue;
+            }
 
             const otherBox = otherModel.cachedBounds.clone().translate(otherModel.object.position);
 
@@ -205,10 +247,10 @@ export class InteractionManager {
                 // Check if boxes overlap
                 const intersection = new THREE.Box3();
                 intersection.copy(testBox).intersect(otherBox);
-                
+
                 const size = new THREE.Vector3();
                 intersection.getSize(size);
-                
+
                 // If intersection has positive volume in all dimensions, they overlap
                 if (size.x > 0 && size.y > 0 && size.z > 0) {
                     return movingModel.object.position.clone();
@@ -218,6 +260,36 @@ export class InteractionManager {
         }
 
         return position;
+    }
+
+    private resolveCollisionsWithObb(position: THREE.Vector3, movingModel: ModelData): THREE.Vector3 {
+        const movingObb = this.createModelObb(movingModel, position);
+
+        for (const otherModel of this.models.value) {
+            if (otherModel.id === movingModel.id) {
+                continue;
+            }
+
+            const otherObb = this.createModelObb(otherModel, otherModel.object.position);
+
+            if (movingObb.intersectsOBB(otherObb)) {
+                return movingModel.object.position.clone();
+            }
+        }
+
+        return position;
+    }
+
+    private createModelObb(model: ModelData, position: THREE.Vector3): OBB {
+        const obb = new OBB().fromBox3(model.bounds.box);
+        const transform = new THREE.Matrix4().compose(
+            position.clone(),
+            model.object.quaternion.clone(),
+            model.object.scale.clone()
+        );
+
+        obb.applyMatrix4(transform);
+        return obb;
     }
 
     private findModelByMesh(mesh: THREE.Mesh): ModelData | null {

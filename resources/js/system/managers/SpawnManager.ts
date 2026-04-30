@@ -1,6 +1,15 @@
 import * as THREE from 'three';
+import { OBB } from 'three/examples/jsm/math/OBB.js';
 import type { Ref } from 'vue';
 import type { ModelData } from '../utilities/types';
+import {
+    DEFAULT_COLLISION_MODE,
+    type CollisionMetrics,
+    type CollisionMode,
+    createEmptyCollisionMetrics,
+    recordCollisionMetric,
+    resetCollisionMetrics,
+} from '../utilities/CollisionDetection';
 
 /**
  * Manages smart model spawning with collision detection
@@ -9,9 +18,27 @@ import type { ModelData } from '../utilities/types';
 export class SpawnManager {
     private readonly models: Ref<ModelData[]>;
     private readonly maxAttempts: number = 100;
+    private collisionMode: CollisionMode = DEFAULT_COLLISION_MODE;
+    private readonly collisionMetrics: CollisionMetrics = createEmptyCollisionMetrics();
 
     constructor(models: Ref<ModelData[]>) {
         this.models = models;
+    }
+
+    public setCollisionMode(mode: CollisionMode): void {
+        this.collisionMode = mode;
+    }
+
+    public getCollisionMode(): CollisionMode {
+        return this.collisionMode;
+    }
+
+    public getCollisionMetrics(): CollisionMetrics {
+        return this.collisionMetrics;
+    }
+
+    public resetCollisionMetrics(): void {
+        resetCollisionMetrics(this.collisionMetrics);
     }
 
     /**
@@ -22,18 +49,18 @@ export class SpawnManager {
      */
     public findSpawnPosition(newModelSize: THREE.Vector3): THREE.Vector3 {
         const origin = new THREE.Vector3(0, 0, 0);
-        
+
         if (this.isPositionValid(origin, newModelSize)) {
             return origin;
         }
 
         // Search spawn position spiraling outward from origin
         let closestCandidate: { position: THREE.Vector3; distance: number } | null = null;
-        
+
         for (let attempt = 1; attempt <= this.maxAttempts; attempt++) {
             const candidate = this.generateSpiralPosition(attempt);
             const distance = candidate.distanceTo(origin);
-            
+
             if (this.isPositionValid(candidate, newModelSize)) {
                 // Keep track of the closest valid position found
                 if (!closestCandidate || distance < closestCandidate.distance) {
@@ -55,7 +82,7 @@ export class SpawnManager {
         const goldenAngle = Math.PI * (3 - Math.sqrt(5)); // ~137.5 degrees
         const angle = attempt * goldenAngle;
         const radius = Math.sqrt(attempt) * 0.5;
-        
+
         return new THREE.Vector3(
             radius * Math.cos(angle),
             0,
@@ -65,6 +92,8 @@ export class SpawnManager {
 
     // Check if a position is valid (no collisions with existing models)
     private isPositionValid(position: THREE.Vector3, newModelSize: THREE.Vector3): boolean {
+        const startTime = performance.now();
+
         // Create bounding box for the new model at this position
         const newBox = new THREE.Box3(
             new THREE.Vector3(
@@ -79,13 +108,53 @@ export class SpawnManager {
             )
         );
 
+        const isValid = this.collisionMode === 'obb'
+            ? this.validateWithObb(newBox)
+            : this.validateWithAabb(newBox);
+
+        const elapsedMs = performance.now() - startTime;
+        recordCollisionMetric(this.collisionMetrics, this.collisionMode, elapsedMs);
+
+        return isValid;
+    }
+
+    private validateWithAabb(newBox: THREE.Box3): boolean {
         // Check collision with ALL existing models at their current positions
         for (const modelData of this.models.value) {
             const existingBox = new THREE.Box3().setFromObject(modelData.object);
-            
-            if (newBox.intersectsBox(existingBox)) return false; // Collision detected
+
+            if (newBox.intersectsBox(existingBox)) {
+                return false;
+            }
         }
 
-        return true; // No collisions
+        return true;
+    }
+
+    private validateWithObb(newBox: THREE.Box3): boolean {
+        const newObb = new OBB().fromBox3(newBox);
+
+        // Check collision with ALL existing models at their current positions
+        for (const modelData of this.models.value) {
+            const existingObb = this.createModelObb(modelData, modelData.object.position);
+
+            if (newObb.intersectsOBB(existingObb)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private createModelObb(modelData: ModelData, position: THREE.Vector3): OBB {
+        const obb = new OBB().fromBox3(modelData.bounds.box);
+        const transform = new THREE.Matrix4().compose(
+            position.clone(),
+            modelData.object.quaternion.clone(),
+            modelData.object.scale.clone()
+        );
+
+        obb.applyMatrix4(transform);
+        return obb;
     }
 }
