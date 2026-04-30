@@ -1,17 +1,21 @@
 import * as THREE from 'three';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ModelData } from '@/system/utilities/types';
+import { PersistenceManager } from '@/system/managers/PersistenceManager';
 
 vi.mock('@/system/managers/SceneManager', () => ({
     SceneManager: vi.fn().mockImplementation(function () {
+        const scene = new THREE.Scene();
+
         return {
-        setupScene: vi.fn(),
-        setupGround: vi.fn(),
-        setupLights: vi.fn(),
-        addObject: vi.fn(),
-        removeObject: vi.fn(),
-        changeGroundTexture: vi.fn(),
-        cleanup: vi.fn(),
+            setupScene: vi.fn(() => undefined),
+            setupGround: vi.fn(() => undefined),
+            setupLights: vi.fn(() => undefined),
+            addObject: vi.fn(),
+            removeObject: vi.fn(),
+            changeGroundTexture: vi.fn(),
+            cleanup: vi.fn(),
+            getScene: vi.fn(() => scene),
         };
     }),
 }));
@@ -155,10 +159,17 @@ function createModelData(moduleKey: string, path: string, position: [number, num
 describe('Planner round-trip', () => {
     beforeEach(() => {
         Planner.resetInstance();
+        vi.stubGlobal('localStorage', {
+            getItem: vi.fn(() => null),
+            setItem: vi.fn(),
+            removeItem: vi.fn(),
+        });
     });
 
     afterEach(() => {
         Planner.resetInstance();
+        vi.useRealTimers();
+        vi.unstubAllGlobals();
         vi.restoreAllMocks();
     });
 
@@ -225,5 +236,37 @@ describe('Planner round-trip', () => {
             expect(reloaded.object.quaternion.z).toBeCloseTo(original.object.quaternion.z);
             expect(reloaded.object.quaternion.w).toBeCloseTo(original.object.quaternion.w);
         });
+    });
+
+    it('clears the scene when loadFromJSON receives empty or invalid data', async () => {
+        const planner = Planner.getInstance();
+        planner.init({} as HTMLCanvasElement);
+
+        planner.state.models.push(createModelData('CONNECT_MODULAR_SOFA_LEFT_ARMREST_A', 'models/a.glb', [0, 0, 0], 0));
+
+        await planner.loadFromJSON([]);
+        expect(planner.state.models).toHaveLength(0);
+
+        planner.state.models.push(createModelData('CONNECT_MODULAR_SOFA_RIGHT_ARMREST_B', 'models/b.glb', [1, 0, 0], 0));
+
+        await planner.loadFromJSON({} as never);
+        expect(planner.state.models).toHaveLength(0);
+    });
+
+    it('triggers autosave only after the interval when dirty', async () => {
+        vi.useFakeTimers();
+
+        const planner = Planner.getInstance();
+        planner.init({} as HTMLCanvasElement);
+
+        const persistenceInstance = vi.mocked(PersistenceManager).mock.instances.at(-1) as { autoSave: ReturnType<typeof vi.fn> };
+        expect(persistenceInstance.autoSave).not.toHaveBeenCalled();
+
+        await planner.loadModel('models/autosave.glb');
+        vi.advanceTimersByTime(2999);
+        expect(persistenceInstance.autoSave).not.toHaveBeenCalled();
+
+        vi.advanceTimersByTime(1);
+        expect(persistenceInstance.autoSave).toHaveBeenCalledTimes(1);
     });
 });

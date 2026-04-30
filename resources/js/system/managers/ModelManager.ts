@@ -17,6 +17,7 @@ export class ModelManager {
     private readonly loader: GLTFLoader;
     private readonly spawnManager: SpawnManager;
     private readonly modelCache = new Map<string, THREE.Group>();
+    private readonly pendingModelLoads = new Map<string, Promise<THREE.Group>>();
     private readonly resourceTrackers = new Map<string, ResourceTracker>();
 
     constructor(
@@ -53,16 +54,32 @@ export class ModelManager {
             return this.modelCache.get(path)!.clone();
         }
 
-        // Load and cache, tracking resources
-        const tracker = new ResourceTracker();
-        const gltf = await this.loader.loadAsync(path);
-        const model = tracker.track(gltf.scene);
+        const pendingLoad = this.pendingModelLoads.get(path);
+        if (pendingLoad) {
+            return (await pendingLoad).clone();
+        }
 
-        // Store original for cloning and track its resources
-        this.modelCache.set(path, model);
-        this.resourceTrackers.set(path, tracker);
+        const loadPromise = (async () => {
+            // Load and cache, tracking resources
+            const tracker = new ResourceTracker();
+            const gltf = await this.loader.loadAsync(path);
+            const model = tracker.track(gltf.scene);
 
-        return model.clone();
+            // Store original for cloning and track its resources
+            this.modelCache.set(path, model);
+            this.resourceTrackers.set(path, tracker);
+
+            return model;
+        })();
+
+        this.pendingModelLoads.set(path, loadPromise);
+
+        try {
+            const model = await loadPromise;
+            return model.clone();
+        } finally {
+            this.pendingModelLoads.delete(path);
+        }
     }
 
     // Load a 3D model with saved position, rotation, and scale.
@@ -241,6 +258,8 @@ export class ModelManager {
 
     // Clear all cached models to free up memory
     public clearModelCache(): void {
+        this.pendingModelLoads.clear();
+
         for (const tracker of this.resourceTrackers.values()) {
             tracker.dispose();
         }

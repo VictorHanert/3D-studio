@@ -315,18 +315,31 @@ export class Planner {
         return this.serializeModels();
     }
 
-    public async loadFromJSON(data: ConfigurationData | SerializedModel[]): Promise<void> {
-        const models = Array.isArray(data) ? data : data.models;
-        await this.loadSerializedModels(models ?? []);
+    public async loadFromJSON(data: ConfigurationData | SerializedModel[] | null | undefined): Promise<void> {
+        const models = Array.isArray(data) ? data : data?.models;
+        if (!models || models.length === 0) {
+            this.clearCanvasForNewConfig();
+            return;
+        }
+
+        await this.loadSerializedModels(models);
     }
 
     public async loadFromConfiguration(config: ConfigurationData): Promise<void> {
-        if (!config || !config.models) return;
+        if (!config || !config.models || config.models.length === 0) {
+            this.clearCanvasForNewConfig();
+            return;
+        }
 
         await this.loadSerializedModels(config.models);
     }
 
     private async loadSerializedModels(models: SerializedModel[]): Promise<void> {
+        if (models.length === 0) {
+            this.clearCanvasForNewConfig();
+            return;
+        }
+
         for (const savedModel of models) {
             const savedPosition = new THREE.Vector3(
                 savedModel.position.x,

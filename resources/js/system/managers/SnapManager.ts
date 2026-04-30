@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import type { ModelData, SnapConfig, SnapPointDefinition, SnapRule } from '../utilities/types';
 
 export class SnapManager {
+    private readonly angleTolerance = 0.1;
     private config: SnapConfig | null = null;
     private loadPromise: Promise<void> | null = null;
 
@@ -55,6 +56,10 @@ export class SnapManager {
                 for (const otherPoint of otherDefinition.points) {
                     const rule = this.getRule(movingPoint.type, otherPoint.type);
                     if (!rule) {
+                        continue;
+                    }
+
+                    if (!this.isWithinAngleTolerance(movingModel, otherModel)) {
                         continue;
                     }
 
@@ -115,6 +120,11 @@ export class SnapManager {
         }
 
         return null;
+    }
+
+    private isWithinAngleTolerance(movingModel: ModelData, otherModel: ModelData): boolean {
+        const angleDifference = Math.abs(movingModel.object.rotation.y - otherModel.object.rotation.y);
+        return angleDifference <= this.angleTolerance;
     }
 
     private getWorldSnapPoint(model: ModelData, point: SnapPointDefinition, positionOverride?: THREE.Vector3): THREE.Vector3 {
