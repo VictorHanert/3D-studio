@@ -2,7 +2,7 @@ import { wayfinder } from '@laravel/vite-plugin-wayfinder';
 import tailwindcss from '@tailwindcss/vite';
 import vue from '@vitejs/plugin-vue';
 import laravel from 'laravel-vite-plugin';
-import { defineConfig } from 'vite';
+import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
     plugins: [
@@ -49,5 +49,13 @@ export default defineConfig({
     },
     optimizeDeps: {
         include: ['@lineiconshq/vue-lineicons', '@lineiconshq/free-icons'],
+    },
+    test: {
+        environment: 'node',
+        include: ['tests/**/*.test.ts'],
+        coverage: {
+            provider: 'v8',
+            reporter: ['text', 'lcov', 'html'],
+        },
     },
 });
