@@ -126,4 +126,48 @@ describe('SnapManager domain rules', () => {
         expect(accepted).not.toEqual(candidate);
         expect(accepted.x).toBeGreaterThan(0);
     });
+
+    it('snaps exactly at distance threshold boundary', async () => {
+        const manager = new SnapManager();
+
+        vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+            ok: true,
+            json: async () => createConfig(),
+        } as Response);
+
+        await manager.loadConfig();
+
+        // Moving model at x=0, right snap point at local x=1 → world x=1
+        // Target model at x=2, left snap point at local x=-1 → world x=1
+        // Candidate at x=0.5, so moving snap point becomes world x=1.5
+        // Distance from (1.5, 0, -1) to (1, 0, -1) = 0.5 (exactly at threshold)
+        const moving = createModel('MOVE', 0, 0);
+        const target = createModel('TARGET_A', 2, 0);
+        const candidateAtThreshold = new THREE.Vector3(0.5, 0, 0);
+
+        const snapped = manager.getSnappedPosition(moving, candidateAtThreshold, [target]);
+
+        // Delta should move candidate from x=0.5 to align snap points
+        // Moving snap point at x=1.5, target at x=1, delta = -0.5
+        expect(snapped.x).toBeCloseTo(0, 1);
+    });
+
+    it('rejects snap just beyond distance threshold', async () => {
+        const manager = new SnapManager();
+
+        vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+            ok: true,
+            json: async () => createConfig(),
+        } as Response);
+
+        await manager.loadConfig();
+
+        const moving = createModel('MOVE', 0, 0);
+        const target = createModel('TARGET_A', 3.5, 0);
+        const candidateBeyondThreshold = new THREE.Vector3(0.8, 0, 0);
+
+        const snapped = manager.getSnappedPosition(moving, candidateBeyondThreshold, [target]);
+
+        expect(snapped).toEqual(candidateBeyondThreshold);
+    });
 });

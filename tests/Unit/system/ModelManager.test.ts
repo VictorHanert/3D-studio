@@ -135,4 +135,27 @@ describe('ModelManager cache and failure handling', () => {
         expect(() => manager.disposeModel(model)).not.toThrow();
         expect(removeObjectSpy).toHaveBeenCalledTimes(1);
     });
+
+    it('calculates bounds correctly for model with multiple child meshes', () => {
+        // This test validates that bounds calculation accounts for all mesh positions
+        const group = new THREE.Group();
+        group.position.set(5, 0, 0); // Position model in space
+
+        // Create mesh at y=0 (extends -0.5 to 0.5)
+        const mesh1 = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial());
+        mesh1.position.set(0, 0, 0);
+        group.add(mesh1);
+
+        // Create mesh at y=-2 (extends -2.5 to -1.5)
+        const mesh2 = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial());
+        mesh2.position.set(0, -2, 0);
+        group.add(mesh2);
+
+        // Bounds should encompass all children: y from -2.5 to 0.5 (range of 3.0)
+        const bounds = new THREE.Box3().setFromObject(group);
+
+        expect(bounds.min.y).toBeCloseTo(-2.5, 1);
+        expect(bounds.max.y).toBeCloseTo(0.5, 1);
+        expect(bounds.getSize(new THREE.Vector3()).y).toBeCloseTo(3.0, 1);
+    });
 });
