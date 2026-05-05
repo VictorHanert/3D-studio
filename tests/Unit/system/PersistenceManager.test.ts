@@ -1,12 +1,10 @@
-import * as THREE from 'three';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ModelData, SerializedModel } from '@/system/utilities/types';
-import { PersistenceManager } from '@/system/managers/PersistenceManager';
+import { describe, expect, it } from 'vitest';
+import type { SerializedModel } from '@/system/utilities/types';
 
 function createValidSerializedModel(overrides?: Partial<SerializedModel>): SerializedModel {
     return {
-        id: 'test-model',
-        modelKey: 'CONNECT_MODULAR_SOFA_LEFT_ARMREST_A',
+        module_key: 'CONNECT_MODULAR_SOFA_LEFT_ARMREST_A',
+        path: '/models/connect-modular-sofa-left-armrest-a.glb',
         position: { x: 0.123456, y: 1.5, z: -2.789012 },
         rotation: { x: 0, y: 1.5708, z: 0 },
         scale: { x: 1.0, y: 1.0, z: 1.0 },
@@ -14,30 +12,20 @@ function createValidSerializedModel(overrides?: Partial<SerializedModel>): Seria
     };
 }
 
-function createValidPayload(models: SerializedModel[]): { name: string; configuration_data: SerializedModel[] } {
+function createValidPayload(models: SerializedModel[]): { name: string; configuration_data: { models: SerializedModel[] } } {
     return {
         name: 'Test Configuration',
-        configuration_data: models,
+        configuration_data: { models },
     };
 }
 
 describe('PersistenceManager JSON contract validation', () => {
-    let persistenceManager: PersistenceManager;
-
-    beforeEach(() => {
-        persistenceManager = new PersistenceManager();
-    });
-
-    afterEach(() => {
-        vi.restoreAllMocks();
-    });
-
     it('validates that serialized model matches backend schema requirements', () => {
         const validModel = createValidSerializedModel();
 
         // Check all required fields exist
-        expect(validModel).toHaveProperty('id');
-        expect(validModel).toHaveProperty('modelKey');
+        expect(validModel).toHaveProperty('module_key');
+        expect(validModel).toHaveProperty('path');
         expect(validModel).toHaveProperty('position');
         expect(validModel).toHaveProperty('rotation');
         expect(validModel).toHaveProperty('scale');
@@ -93,21 +81,21 @@ describe('PersistenceManager JSON contract validation', () => {
 
     it('validates that full configuration payload matches backend contract', () => {
         const models = [
-            createValidSerializedModel({ id: 'model-1' }),
-            createValidSerializedModel({ id: 'model-2', position: { x: 2, y: 0, z: 0 } }),
+            createValidSerializedModel({ module_key: 'MODEL_A' }),
+            createValidSerializedModel({ module_key: 'MODEL_B', position: { x: 2, y: 0, z: 0 } }),
         ];
 
         const payload = createValidPayload(models);
 
         // Validate payload structure
         expect(typeof payload.name).toBe('string');
-        expect(Array.isArray(payload.configuration_data)).toBe(true);
-        expect(payload.configuration_data).toHaveLength(2);
+        expect(Array.isArray(payload.configuration_data.models)).toBe(true);
+        expect(payload.configuration_data.models).toHaveLength(2);
 
         // Validate each model in configuration_data
-        for (const model of payload.configuration_data) {
-            expect(model).toHaveProperty('id');
-            expect(model).toHaveProperty('modelKey');
+        for (const model of payload.configuration_data.models) {
+            expect(model).toHaveProperty('module_key');
+            expect(model).toHaveProperty('path');
             expect(model).toHaveProperty('position');
             expect(model).toHaveProperty('rotation');
             expect(model).toHaveProperty('scale');
@@ -122,7 +110,7 @@ describe('PersistenceManager JSON contract validation', () => {
         const jsonStr = JSON.stringify(payload);
         expect(() => JSON.parse(jsonStr)).not.toThrow();
         const reparsed = JSON.parse(jsonStr);
-        expect(reparsed.configuration_data).toHaveLength(2);
+        expect(reparsed.configuration_data.models).toHaveLength(2);
     });
 
     it('rejects invalid payload with scale.x = 0 (violates backend validation rule)', () => {
@@ -133,7 +121,7 @@ describe('PersistenceManager JSON contract validation', () => {
         const payload = createValidPayload([invalidModel]);
 
         // This payload would fail backend validation
-        const scaleValidation = payload.configuration_data.every(
+        const scaleValidation = payload.configuration_data.models.every(
             (model) => model.scale.x > 0 && model.scale.y > 0 && model.scale.z > 0
         );
 
@@ -143,14 +131,12 @@ describe('PersistenceManager JSON contract validation', () => {
     it('accepts valid payload with all required fields and constraints', () => {
         const validModels = [
             createValidSerializedModel({
-                id: 'furniture-1',
-                modelKey: 'SOFA_SECTION_A',
+                module_key: 'SOFA_SECTION_A',
                 position: { x: 0.5, y: 0, z: -1.25 },
                 scale: { x: 1.5, y: 1.0, z: 0.8 },
             }),
             createValidSerializedModel({
-                id: 'furniture-2',
-                modelKey: 'CHAIR_B',
+                module_key: 'CHAIR_B',
                 position: { x: -2.0, y: 0, z: 0 },
                 scale: { x: 1.0, y: 1.0, z: 1.0 },
             }),
@@ -159,10 +145,10 @@ describe('PersistenceManager JSON contract validation', () => {
         const payload = createValidPayload(validModels);
 
         // Validate all constraints
-        const isValid = payload.configuration_data.every((model) => {
+        const isValid = payload.configuration_data.models.every((model) => {
             return (
-                typeof model.id === 'string' &&
-                typeof model.modelKey === 'string' &&
+                typeof model.module_key === 'string' &&
+                typeof model.path === 'string' &&
                 typeof model.position.x === 'number' &&
                 typeof model.position.y === 'number' &&
                 typeof model.position.z === 'number' &&

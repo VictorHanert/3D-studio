@@ -139,10 +139,11 @@ export class SpawnManager {
     private validateWithAabb(newBox: THREE.Box3, position: THREE.Vector3): boolean {
         // Central collision hub: SpawnManager and InteractionManager must agree on geometry rules.
         for (const modelData of this.models.value) {
+            const existingBounds = modelData.cachedBounds ?? modelData.bounds.box;
             if (checkAABBCollision(
                 newBox,
                 position,
-                modelData.bounds.box,
+                existingBounds,
                 modelData.object.position
             )) {
                 return false;

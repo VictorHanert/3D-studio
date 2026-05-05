@@ -122,8 +122,16 @@ export class SnapManager {
         return null;
     }
 
+    private getShortestAngleDifference(angleA: number, angleB: number): number {
+        const fullRotation = Math.PI * 2;
+        const delta = angleA - angleB;
+        return ((delta + Math.PI) % fullRotation + fullRotation) % fullRotation - Math.PI;
+    }
+
     private isWithinAngleTolerance(movingModel: ModelData, otherModel: ModelData): boolean {
-        const angleDifference = Math.abs(movingModel.object.rotation.y - otherModel.object.rotation.y);
+        const angleDifference = Math.abs(
+            this.getShortestAngleDifference(movingModel.object.rotation.y, otherModel.object.rotation.y)
+        );
         return angleDifference <= this.angleTolerance;
     }
 

@@ -78,8 +78,9 @@ export class ResourceTracker {
      * Dispose all tracked resources and clear the tracker
      */
     dispose(): void {
+        const visited = new Set<any>();
         for (const resource of this.resources) {
-            this.disposeResource(resource, false);
+            this.disposeResource(resource, false, visited);
         }
 
         this.resources.clear();
@@ -89,7 +90,7 @@ export class ResourceTracker {
      * Dispose a single tracked node without clearing the entire tracker.
      */
     disposeNode(resource: any): void {
-        this.disposeResource(resource, true);
+        this.disposeResource(resource, true, new Set());
     }
 
     /**
@@ -114,20 +115,26 @@ export class ResourceTracker {
         this.resources.clear();
     }
 
-    private disposeResource(resource: any, removeFromTracker: boolean): void {
+    private disposeResource(resource: any, removeFromTracker: boolean, visited: Set<any>): void {
         if (!resource) {
             return;
         }
 
+        if (visited.has(resource)) {
+            return;
+        }
+
+        visited.add(resource);
+
         if (Array.isArray(resource)) {
-            resource.forEach((item) => this.disposeResource(item, removeFromTracker));
+            resource.forEach((item) => this.disposeResource(item, removeFromTracker, visited));
             return;
         }
 
         if (resource instanceof THREE.Object3D) {
-            this.disposeResource((resource as any).geometry, removeFromTracker);
-            this.disposeResource((resource as any).material, removeFromTracker);
-            this.disposeResource(resource.children, removeFromTracker);
+            this.disposeResource((resource as any).geometry, removeFromTracker, visited);
+            this.disposeResource((resource as any).material, removeFromTracker, visited);
+            this.disposeResource(resource.children, removeFromTracker, visited);
 
             if (resource.parent) {
                 resource.parent.remove(resource);
@@ -137,7 +144,7 @@ export class ResourceTracker {
         if (resource instanceof THREE.Material) {
             for (const value of Object.values(resource)) {
                 if (value instanceof THREE.Texture) {
-                    this.disposeResource(value, removeFromTracker);
+                    this.disposeResource(value, removeFromTracker, visited);
                 }
             }
 
@@ -146,7 +153,7 @@ export class ResourceTracker {
                     if (uniform && typeof uniform === 'object') {
                         const uniformValue = (uniform as any).value;
                         if (uniformValue instanceof THREE.Texture || Array.isArray(uniformValue)) {
-                            this.disposeResource(uniformValue, removeFromTracker);
+                            this.disposeResource(uniformValue, removeFromTracker, visited);
                         }
                     }
                 }

@@ -347,6 +347,8 @@ export class Planner {
                 savedModel.position.z
             );
 
+            const previousCount = this.state.models.length;
+
             await this.loadModel(
                 savedModel.path,
                 savedPosition,
@@ -354,8 +356,8 @@ export class Planner {
                 savedModel.scale
             );
 
-            const loadedModel = this.state.models[this.state.models.length - 1];
-            if (loadedModel) {
+            if (this.state.models.length > previousCount && savedModel.module_key) {
+                const loadedModel = this.state.models[this.state.models.length - 1];
                 loadedModel.modelKey = savedModel.module_key;
             }
         }

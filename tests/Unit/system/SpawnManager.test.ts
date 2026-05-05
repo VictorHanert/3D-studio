@@ -80,4 +80,38 @@ describe('SpawnManager spiral limits', () => {
         expect(generateSpiralSpy).toHaveBeenCalledTimes(100);
         expect(consoleWarnSpy).not.toHaveBeenCalled();
     });
+
+    it('uses cached bounds for AABB collision checks', () => {
+        const object = new THREE.Group();
+        object.position.set(0, 0, 0);
+
+        const bounds = {
+            box: new THREE.Box3(new THREE.Vector3(10, 0, 10), new THREE.Vector3(11, 1, 11)),
+            size: new THREE.Vector3(1, 1, 1),
+        };
+
+        const cachedBounds = new THREE.Box3(new THREE.Vector3(-1, 0, -1), new THREE.Vector3(1, 1, 1));
+
+        const modelData: ModelData = {
+            id: 'cached-bounds-model',
+            modelKey: 'cached-bounds-model',
+            object,
+            bounds,
+            cachedBounds,
+            path: '/models/cached-bounds-model.glb',
+            meshes: [],
+        } as ModelData;
+
+        const models = ref<ModelData[]>([modelData]);
+        const manager = new SpawnManager(models);
+
+        const newBox = new THREE.Box3(
+            new THREE.Vector3(-0.5, 0, -0.5),
+            new THREE.Vector3(0.5, 1, 0.5)
+        );
+
+        const isValid = (manager as any).validateWithAabb(newBox, new THREE.Vector3(0, 0, 0));
+
+        expect(isValid).toBe(false);
+    });
 });

@@ -127,6 +127,25 @@ describe('SnapManager domain rules', () => {
         expect(accepted.x).toBeGreaterThan(0);
     });
 
+    it('accepts snaps when rotations differ by full turns', async () => {
+        const manager = new SnapManager();
+
+        vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+            ok: true,
+            json: async () => createConfig(),
+        } as Response);
+
+        await manager.loadConfig();
+
+        const moving = createModel('MOVE', 0, 0);
+        const target = createModel('TARGET_A', 2, Math.PI * 2);
+        const candidate = new THREE.Vector3(0.5, 0, 0);
+
+        const snapped = manager.getSnappedPosition(moving, candidate, [target]);
+
+        expect(snapped.x).toBeCloseTo(0, 1);
+    });
+
     it('snaps exactly at distance threshold boundary', async () => {
         const manager = new SnapManager();
 
