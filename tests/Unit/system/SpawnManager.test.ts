@@ -47,4 +47,37 @@ describe('SpawnManager spiral limits', () => {
         expect(result.y).toBe(0);
         expect(result.z).toBe(0);
     });
+
+    it('returns origin immediately when it is collision free', () => {
+        const models = ref<ModelData[]>([]);
+        const manager = new SpawnManager(models);
+        const generateSpiralSpy = vi.spyOn(manager as any, 'generateSpiralPosition');
+
+        const result = manager.findSpawnPosition(new THREE.Vector3(2, 2, 2));
+
+        expect(result).toEqual(new THREE.Vector3(0, 0, 0));
+        expect(generateSpiralSpy).not.toHaveBeenCalled();
+    });
+
+    it('returns a valid candidate discovered on the maximum spiral attempt', () => {
+        const models = ref<ModelData[]>([]);
+        const manager = new SpawnManager(models);
+
+        const generateSpiralSpy = vi
+            .spyOn(manager as any, 'generateSpiralPosition')
+            .mockImplementation((attempt: number) => new THREE.Vector3(attempt, 0, -attempt));
+
+        const isPositionValidSpy = vi
+            .spyOn(manager as any, 'isPositionValid')
+            .mockImplementation((position: THREE.Vector3) => position.x === 100);
+
+        const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+        const result = manager.findSpawnPosition(new THREE.Vector3(1, 1, 1));
+
+        expect(result).toEqual(new THREE.Vector3(100, 0, -100));
+        expect(isPositionValidSpy).toHaveBeenCalledTimes(101);
+        expect(generateSpiralSpy).toHaveBeenCalledTimes(100);
+        expect(consoleWarnSpy).not.toHaveBeenCalled();
+    });
 });

@@ -74,4 +74,65 @@ describe('ModelManager cache and failure handling', () => {
         expect(models.value).toHaveLength(0);
         expect(consoleErrorSpy).toHaveBeenCalled();
     });
+
+    it('retries loading after a failed asset request for the same path', async () => {
+        gltfLoaderMock.loadAsync
+            .mockRejectedValueOnce(new Error('404 not found'))
+            .mockResolvedValueOnce({ scene: createLoadedScene() });
+
+        const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+        const manager = new ModelManager(sceneManager, models as never, draggableMeshes);
+
+        await manager.loadModel('/models/missing-then-fixed.glb', new THREE.Vector3(0, 0, 0));
+        await manager.loadModel('/models/missing-then-fixed.glb', new THREE.Vector3(1, 0, 0));
+
+        expect(gltfLoaderMock.loadAsync).toHaveBeenCalledTimes(2);
+        expect(models.value).toHaveLength(1);
+        expect(consoleErrorSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('ignores invalid model paths before loader execution', async () => {
+        const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+        const manager = new ModelManager(sceneManager, models as never, draggableMeshes);
+
+        await manager.loadModel('' as unknown as string, new THREE.Vector3(0, 0, 0));
+
+        expect(gltfLoaderMock.loadAsync).not.toHaveBeenCalled();
+        expect(consoleErrorSpy).toHaveBeenCalledWith('Invalid model path:', '');
+        expect(models.value).toHaveLength(0);
+    });
+
+    it('handles disposing the same model twice without throwing', () => {
+        const manager = new ModelManager(sceneManager, models as never, draggableMeshes);
+        const removeObjectSpy = vi.spyOn(sceneManager, 'removeObject');
+
+        const geometry = new THREE.BoxGeometry(1, 1, 1);
+        const firstMaterial = new THREE.MeshBasicMaterial();
+        const secondMaterial = new THREE.MeshBasicMaterial();
+        const mesh = new THREE.Mesh(geometry, [firstMaterial, secondMaterial]);
+        const object = new THREE.Group();
+        object.add(mesh);
+        sceneManager.scene.add(object);
+
+        draggableMeshes.push(mesh);
+
+        const model: ModelData = {
+            id: 'double-dispose',
+            modelKey: 'double-dispose',
+            object,
+            bounds: {
+                box: new THREE.Box3(new THREE.Vector3(-0.5, 0, -0.5), new THREE.Vector3(0.5, 1, 0.5)),
+                size: new THREE.Vector3(1, 1, 1),
+            },
+            cachedBounds: new THREE.Box3(new THREE.Vector3(-0.5, 0, -0.5), new THREE.Vector3(0.5, 1, 0.5)),
+            path: '/models/double-dispose.glb',
+            meshes: [mesh],
+        } as ModelData;
+
+        expect(() => manager.disposeModel(model)).not.toThrow();
+        expect(draggableMeshes).toHaveLength(0);
+
+        expect(() => manager.disposeModel(model)).not.toThrow();
+        expect(removeObjectSpy).toHaveBeenCalledTimes(1);
+    });
 });

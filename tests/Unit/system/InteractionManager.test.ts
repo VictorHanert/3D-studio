@@ -86,11 +86,16 @@ describe('InteractionManager drag constraints', () => {
         canvas = new CanvasMock();
         renderer = { domElement: canvas } as unknown as THREE.WebGLRenderer;
         camera = new THREE.PerspectiveCamera(50, 1, 0.1, 1000);
+        controls.enabled = true;
+        hoveredModel.value = null;
+        showControls.value = false;
+        controlPosition.value = { x: 0, y: 0 };
 
         vi.spyOn(THREE.Raycaster.prototype, 'setFromCamera').mockImplementation(() => undefined);
     });
 
     afterEach(() => {
+        vi.useRealTimers();
         vi.restoreAllMocks();
     });
 
@@ -166,5 +171,85 @@ describe('InteractionManager drag constraints', () => {
 
         expect(dragged.object.position.x).toBeCloseTo(-2);
         expect(dragged.object.position.z).toBeCloseTo(0);
+    });
+
+    it('resets hover state after a raycast miss timeout', () => {
+        vi.useFakeTimers();
+        vi.setSystemTime(1000);
+
+        const model = createModel('hovered', new THREE.Vector3(0, 0, 0));
+        const models = ref<ModelData[]>([model]);
+        showControls.value = true;
+
+        const manager = new InteractionManager(
+            camera,
+            renderer,
+            controls,
+            models,
+            model.meshes,
+            hoveredModel,
+            showControls,
+            controlPosition,
+            null,
+            5
+        );
+
+        vi.spyOn(THREE.Raycaster.prototype, 'intersectObjects').mockReturnValue([]);
+
+        manager.setupInteractions();
+
+        canvas.dispatchPointerEvent('pointermove', { clientX: 10, clientY: 10 });
+
+        expect(canvas.style.cursor).toBe('default');
+        expect(showControls.value).toBe(true);
+        expect(hoveredModel.value).toBeNull();
+
+        vi.advanceTimersByTime(500);
+
+        expect(showControls.value).toBe(false);
+        expect(hoveredModel.value).toBeNull();
+    });
+
+    it('cancels dragging on pointerleave and prevents additional movement', () => {
+        const model = createModel('selected', new THREE.Vector3(0, 0, 0));
+        const models = ref<ModelData[]>([model]);
+        const manager = new InteractionManager(
+            camera,
+            renderer,
+            controls,
+            models,
+            model.meshes,
+            hoveredModel,
+            showControls,
+            controlPosition,
+            null,
+            5
+        );
+
+        let currentIntersection = new THREE.Vector3(0, 0, 0);
+        vi.spyOn(THREE.Raycaster.prototype, 'intersectObjects')
+            .mockReturnValueOnce([{ object: model.meshes[0] } as THREE.Intersection<THREE.Object3D>])
+            .mockReturnValue([]);
+        vi.spyOn(THREE.Ray.prototype, 'intersectPlane').mockImplementation((_, target) => {
+            target.copy(currentIntersection);
+            return target;
+        });
+
+        manager.setupInteractions();
+
+        canvas.dispatchPointerEvent('pointerdown', { clientX: 400, clientY: 300 });
+
+        currentIntersection = new THREE.Vector3(3, 0, 0);
+        canvas.dispatchPointerEvent('pointermove', { clientX: 450, clientY: 300 });
+        expect(model.object.position.x).toBeCloseTo(3);
+
+        canvas.dispatchPointerEvent('pointerleave', { clientX: 450, clientY: 300 });
+
+        currentIntersection = new THREE.Vector3(4, 0, 0);
+        canvas.dispatchPointerEvent('pointermove', { clientX: 500, clientY: 300 });
+
+        expect(model.object.position.x).toBeCloseTo(3);
+        expect(controls.enabled).toBe(true);
+        expect(canvas.style.cursor).toBe('default');
     });
 });
