@@ -123,7 +123,7 @@ export class SpawnManager {
 
         const measurement = measureCollisionCheck(() => {
             return this.collisionMode === 'obb'
-                ? this.validateWithObb(spawnBounds, position, rotation, scale)
+                ? this.validateWithObb(spawnBounds, position, rotation)
                 : this.validateWithAabb(spawnBounds, position);
         });
 
@@ -156,17 +156,14 @@ export class SpawnManager {
     private validateWithObb(
         newBox: THREE.Box3,
         position: THREE.Vector3,
-        rotation?: { x: number; y: number; z: number },
-        scale?: { x: number; y: number; z: number }
+        rotation?: { x: number; y: number; z: number }
     ): boolean {
         const spawnTransform: CollisionTransform = {
             position,
             quaternion: rotation
                 ? new THREE.Quaternion().setFromEuler(new THREE.Euler(rotation.x, rotation.y, rotation.z))
                 : new THREE.Quaternion(),
-            scale: scale
-                ? new THREE.Vector3(scale.x, scale.y, scale.z)
-                : new THREE.Vector3(1, 1, 1),
+            scale: new THREE.Vector3(1, 1, 1),
         };
 
         for (const modelData of this.models.value) {
