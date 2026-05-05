@@ -50,10 +50,14 @@ export class SpawnManager {
      * 2. If origin occupied, finds the CLOSEST available spot to center
      * 3. No collisions with existing models using current positions
      */
-    public findSpawnPosition(newModelSize: THREE.Vector3): THREE.Vector3 {
+    public findSpawnPosition(
+        newModelSize: THREE.Vector3,
+        rotation?: { x: number; y: number; z: number },
+        scale?: { x: number; y: number; z: number }
+    ): THREE.Vector3 {
         const origin = new THREE.Vector3(0, 0, 0);
 
-        if (this.isPositionValid(origin, newModelSize)) {
+        if (this.isPositionValid(origin, newModelSize, rotation, scale)) {
             return origin;
         }
 
@@ -64,7 +68,7 @@ export class SpawnManager {
             const candidate = this.generateSpiralPosition(attempt);
             const distance = candidate.distanceTo(origin);
 
-            if (this.isPositionValid(candidate, newModelSize)) {
+            if (this.isPositionValid(candidate, newModelSize, rotation, scale)) {
                 // Keep track of the closest valid position found
                 if (!closestCandidate || distance < closestCandidate.distance) {
                     closestCandidate = { position: candidate, distance };
@@ -94,23 +98,32 @@ export class SpawnManager {
     }
 
     // Check if a position is valid (no collisions with existing models)
-    private isPositionValid(position: THREE.Vector3, newModelSize: THREE.Vector3): boolean {
+    private isPositionValid(
+        position: THREE.Vector3,
+        newModelSize: THREE.Vector3,
+        rotation?: { x: number; y: number; z: number },
+        scale?: { x: number; y: number; z: number }
+    ): boolean {
+        const scaledSize = scale
+            ? newModelSize.clone().multiply(new THREE.Vector3(scale.x, scale.y, scale.z))
+            : newModelSize.clone();
+
         const spawnBounds = new THREE.Box3(
             new THREE.Vector3(
-                -newModelSize.x / 2,
+                -scaledSize.x / 2,
                 0,
-                -newModelSize.z / 2
+                -scaledSize.z / 2
             ),
             new THREE.Vector3(
-                newModelSize.x / 2,
-                newModelSize.y,
-                newModelSize.z / 2
+                scaledSize.x / 2,
+                scaledSize.y,
+                scaledSize.z / 2
             )
         );
 
         const measurement = measureCollisionCheck(() => {
             return this.collisionMode === 'obb'
-                ? this.validateWithObb(spawnBounds, position)
+                ? this.validateWithObb(spawnBounds, position, rotation, scale)
                 : this.validateWithAabb(spawnBounds, position);
         });
 
@@ -139,11 +152,20 @@ export class SpawnManager {
         return true;
     }
 
-    private validateWithObb(newBox: THREE.Box3, position: THREE.Vector3): boolean {
+    private validateWithObb(
+        newBox: THREE.Box3,
+        position: THREE.Vector3,
+        rotation?: { x: number; y: number; z: number },
+        scale?: { x: number; y: number; z: number }
+    ): boolean {
         const spawnTransform: CollisionTransform = {
             position,
-            quaternion: new THREE.Quaternion(),
-            scale: new THREE.Vector3(1, 1, 1),
+            quaternion: rotation
+                ? new THREE.Quaternion().setFromEuler(new THREE.Euler(rotation.x, rotation.y, rotation.z))
+                : new THREE.Quaternion(),
+            scale: scale
+                ? new THREE.Vector3(scale.x, scale.y, scale.z)
+                : new THREE.Vector3(1, 1, 1),
         };
 
         for (const modelData of this.models.value) {

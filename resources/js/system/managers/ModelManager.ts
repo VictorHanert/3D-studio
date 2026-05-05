@@ -116,7 +116,7 @@ export class ModelManager {
             const bounds = this.calculateModelBounds(model);
 
             // Find spawn position: uses provided position if restoring, otherwise calculates via SpawnManager
-            const spawnPosition = position || this.spawnManager.findSpawnPosition(bounds.size);
+            const spawnPosition = position || this.spawnManager.findSpawnPosition(bounds.size, rotation, scale);
             model.position.copy(spawnPosition);
 
             // Restore exact rotation and scale if provided (from saved configuration)
