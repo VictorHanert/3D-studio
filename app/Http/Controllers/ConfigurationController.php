@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreConfigurationRequest;
 use App\Models\UserConfiguration;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\JsonResponse;
@@ -14,12 +15,9 @@ class ConfigurationController extends Controller
     /**
      * Store a new configuration for the authenticated user
      */
-    public function store(Request $request): JsonResponse
+    public function store(StoreConfigurationRequest $request): JsonResponse
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'configuration_data' => 'required|array',
-        ]);
+        $validated = $request->validated();
 
         try {
             $configuration = $request->user()->configurations()->create([

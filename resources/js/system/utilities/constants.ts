@@ -39,5 +39,5 @@ export const SHADOW_CONFIG = {
  * Performance configuration
  */
 export const PERFORMANCE_CONFIG = {
-    RAYCAST_THROTTLE: 16, // ms
+    RAYCAST_THROTTLE: 3, // ms
 } as const;

@@ -56,6 +56,8 @@ export class PersistenceManager {
                 return false;
             }
 
+            const configurationData = Array.isArray(config) ? { models: config } : config;
+
             const response = await fetch('/api/configurations', {
                 method: 'POST',
                 headers: {
@@ -64,7 +66,7 @@ export class PersistenceManager {
                 },
                 body: JSON.stringify({
                     name: configName,
-                    configuration_data: config,
+                    configuration_data: configurationData,
                 }),
             });
 
@@ -96,7 +98,7 @@ export class PersistenceManager {
             const response = await fetch(`/api/configurations/share/${code}`);
             if (response.ok) {
                 const data = await response.json();
-                return data.configuration?.configuration_data || null;
+                return data.configuration?.configuration_data?.models || null;
             }
             console.error('Failed to load configuration:', response.statusText);
             return null;

@@ -1,9 +1,12 @@
 import * as THREE from 'three';
-import { OBB } from 'three/examples/jsm/math/OBB.js';
 import type { Ref } from 'vue';
 import type { ModelData } from '../utilities/types';
 import {
     DEFAULT_COLLISION_MODE,
+    checkAABBCollision,
+    checkOBBCollision,
+    measureCollisionCheck,
+    type CollisionTransform,
     type CollisionMetrics,
     type CollisionMode,
     createEmptyCollisionMetrics,
@@ -47,10 +50,14 @@ export class SpawnManager {
      * 2. If origin occupied, finds the CLOSEST available spot to center
      * 3. No collisions with existing models using current positions
      */
-    public findSpawnPosition(newModelSize: THREE.Vector3): THREE.Vector3 {
+    public findSpawnPosition(
+        newModelSize: THREE.Vector3,
+        rotation?: { x: number; y: number; z: number },
+        scale?: { x: number; y: number; z: number }
+    ): THREE.Vector3 {
         const origin = new THREE.Vector3(0, 0, 0);
 
-        if (this.isPositionValid(origin, newModelSize)) {
+        if (this.isPositionValid(origin, newModelSize, rotation, scale)) {
             return origin;
         }
 
@@ -61,7 +68,7 @@ export class SpawnManager {
             const candidate = this.generateSpiralPosition(attempt);
             const distance = candidate.distanceTo(origin);
 
-            if (this.isPositionValid(candidate, newModelSize)) {
+            if (this.isPositionValid(candidate, newModelSize, rotation, scale)) {
                 // Keep track of the closest valid position found
                 if (!closestCandidate || distance < closestCandidate.distance) {
                     closestCandidate = { position: candidate, distance };
@@ -91,70 +98,89 @@ export class SpawnManager {
     }
 
     // Check if a position is valid (no collisions with existing models)
-    private isPositionValid(position: THREE.Vector3, newModelSize: THREE.Vector3): boolean {
-        const startTime = performance.now();
+    private isPositionValid(
+        position: THREE.Vector3,
+        newModelSize: THREE.Vector3,
+        rotation?: { x: number; y: number; z: number },
+        scale?: { x: number; y: number; z: number }
+    ): boolean {
+        const scaledSize = scale
+            ? newModelSize.clone().multiply(new THREE.Vector3(scale.x, scale.y, scale.z))
+            : newModelSize.clone();
 
-        // Create bounding box for the new model at this position
-        const newBox = new THREE.Box3(
+        const spawnBounds = new THREE.Box3(
             new THREE.Vector3(
-                position.x - newModelSize.x / 2,
-                position.y,
-                position.z - newModelSize.z / 2
+                -scaledSize.x / 2,
+                0,
+                -scaledSize.z / 2
             ),
             new THREE.Vector3(
-                position.x + newModelSize.x / 2,
-                position.y + newModelSize.y,
-                position.z + newModelSize.z / 2
+                scaledSize.x / 2,
+                scaledSize.y,
+                scaledSize.z / 2
             )
         );
 
-        const isValid = this.collisionMode === 'obb'
-            ? this.validateWithObb(newBox)
-            : this.validateWithAabb(newBox);
+        const measurement = measureCollisionCheck(() => {
+            return this.collisionMode === 'obb'
+                ? this.validateWithObb(spawnBounds, position, rotation)
+                : this.validateWithAabb(spawnBounds, position);
+        });
 
-        const elapsedMs = performance.now() - startTime;
-        recordCollisionMetric(this.collisionMetrics, this.collisionMode, elapsedMs);
-
-        return isValid;
-    }
-
-    private validateWithAabb(newBox: THREE.Box3): boolean {
-        // Check collision with ALL existing models at their current positions
-        for (const modelData of this.models.value) {
-            const existingBox = new THREE.Box3().setFromObject(modelData.object);
-
-            if (newBox.intersectsBox(existingBox)) {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    private validateWithObb(newBox: THREE.Box3): boolean {
-        const newObb = new OBB().fromBox3(newBox);
-
-        // Check collision with ALL existing models at their current positions
-        for (const modelData of this.models.value) {
-            const existingObb = this.createModelObb(modelData, modelData.object.position);
-
-            if (newObb.intersectsOBB(existingObb)) {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    private createModelObb(modelData: ModelData, position: THREE.Vector3): OBB {
-        const obb = new OBB().fromBox3(modelData.bounds.box);
-        const transform = new THREE.Matrix4().compose(
-            position.clone(),
-            modelData.object.quaternion.clone(),
-            modelData.object.scale.clone()
+        recordCollisionMetric(
+            this.collisionMetrics,
+            this.collisionMode,
+            measurement.elapsedMicroseconds / 1000
         );
 
-        obb.applyMatrix4(transform);
-        return obb;
+        return measurement.result;
+    }
+
+    private validateWithAabb(newBox: THREE.Box3, position: THREE.Vector3): boolean {
+        // Central collision hub: SpawnManager and InteractionManager must agree on geometry rules.
+        for (const modelData of this.models.value) {
+            const existingBounds = modelData.cachedBounds ?? modelData.bounds.box;
+            if (checkAABBCollision(
+                newBox,
+                position,
+                existingBounds,
+                modelData.object.position
+            )) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private validateWithObb(
+        newBox: THREE.Box3,
+        position: THREE.Vector3,
+        rotation?: { x: number; y: number; z: number }
+    ): boolean {
+        const spawnTransform: CollisionTransform = {
+            position,
+            quaternion: rotation
+                ? new THREE.Quaternion().setFromEuler(new THREE.Euler(rotation.x, rotation.y, rotation.z))
+                : new THREE.Quaternion(),
+            scale: new THREE.Vector3(1, 1, 1),
+        };
+
+        for (const modelData of this.models.value) {
+            if (checkOBBCollision(
+                newBox,
+                spawnTransform,
+                modelData.bounds.box,
+                {
+                    position: modelData.object.position,
+                    quaternion: modelData.object.quaternion,
+                    scale: modelData.object.scale,
+                }
+            )) {
+                return false;
+            }
+        }
+
+        return true;
     }
 }

@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import type { ModelData, SnapConfig, SnapPointDefinition, SnapRule } from '../utilities/types';
 
 export class SnapManager {
+    private readonly angleTolerance = 0.1;
     private config: SnapConfig | null = null;
     private loadPromise: Promise<void> | null = null;
 
@@ -58,6 +59,10 @@ export class SnapManager {
                         continue;
                     }
 
+                    if (!this.isWithinAngleTolerance(movingModel, otherModel)) {
+                        continue;
+                    }
+
                     const snapDistance = rule.snapDistance ?? defaultSnapDistance;
                     const movingWorld = this.getWorldSnapPoint(
                         movingModel,
@@ -82,6 +87,29 @@ export class SnapManager {
         return candidatePosition.clone().add(bestMatch.delta);
     }
 
+    public checkCompatibility(movingModel: ModelData, otherModel: ModelData): boolean {
+        if (!this.config) {
+            return false;
+        }
+
+        const movingDefinition = this.config.models[movingModel.modelKey];
+        const otherDefinition = this.config.models[otherModel.modelKey];
+
+        if (!movingDefinition || !otherDefinition) {
+            return false;
+        }
+
+        for (const movingPoint of movingDefinition.points) {
+            for (const otherPoint of otherDefinition.points) {
+                if (this.getRule(movingPoint.type, otherPoint.type)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
     private getRule(typeA: string, typeB: string): SnapRule | null {
         if (!this.config) return null;
 
@@ -92,6 +120,19 @@ export class SnapManager {
         }
 
         return null;
+    }
+
+    private getShortestAngleDifference(angleA: number, angleB: number): number {
+        const fullRotation = Math.PI * 2;
+        const delta = angleA - angleB;
+        return ((delta + Math.PI) % fullRotation + fullRotation) % fullRotation - Math.PI;
+    }
+
+    private isWithinAngleTolerance(movingModel: ModelData, otherModel: ModelData): boolean {
+        const angleDifference = Math.abs(
+            this.getShortestAngleDifference(movingModel.object.rotation.y, otherModel.object.rotation.y)
+        );
+        return angleDifference <= this.angleTolerance;
     }
 
     private getWorldSnapPoint(model: ModelData, point: SnapPointDefinition, positionOverride?: THREE.Vector3): THREE.Vector3 {

@@ -2,6 +2,7 @@ import * as THREE from 'three';
 // import { RectAreaLight } from 'three';
 import { SCENE_CONFIG } from '../utilities/constants';
 import { GroundTextureManager, type GroundTextureType } from '../utilities/GroundTextureManager';
+import { ResourceTracker } from '../utilities/ResourceTracker';
 
 /**
  * Manages the Three.js scene, ground, and lighting setup
@@ -10,6 +11,7 @@ export class SceneManager {
     public scene: THREE.Scene | null = null;
     private ground: THREE.Mesh | null = null;
     private groundMaterial: THREE.MeshStandardMaterial | null = null;
+    private resourceTracker: ResourceTracker | null = null;
     private readonly backgroundColor: number;
     private readonly groundSize: number;
     private readonly groundColor: number;
@@ -98,10 +100,16 @@ export class SceneManager {
         }
     }
 
+    setResourceTracker(resourceTracker: ResourceTracker | null): void {
+        this.resourceTracker = resourceTracker;
+    }
+
     removeObject(object: THREE.Object3D): void {
         if (this.scene) {
             this.scene.remove(object);
         }
+
+        this.resourceTracker?.disposeNode(object);
     }
 
     cleanup(): void {

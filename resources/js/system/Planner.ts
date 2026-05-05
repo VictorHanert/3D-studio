@@ -291,6 +291,7 @@ export class Planner {
     // Serialize all models to persistence format
     public serializeModels(): SerializedModel[] {
         return this.state.models.map((model) => ({
+            module_key: model.modelKey,
             path: model.path,
             position: {
                 x: model.object.position.x,
@@ -310,15 +311,43 @@ export class Planner {
         }));
     }
 
-    public async loadFromConfiguration(config: ConfigurationData): Promise<void> {
-        if (!config || !config.models) return;
+    public getSerializedData(): SerializedModel[] {
+        return this.serializeModels();
+    }
 
-        for (const savedModel of config.models) {
+    public async loadFromJSON(data: ConfigurationData | SerializedModel[] | null | undefined): Promise<void> {
+        const models = Array.isArray(data) ? data : data?.models;
+        if (!models || models.length === 0) {
+            this.clearCanvasForNewConfig();
+            return;
+        }
+
+        await this.loadSerializedModels(models);
+    }
+
+    public async loadFromConfiguration(config: ConfigurationData): Promise<void> {
+        if (!config || !config.models || config.models.length === 0) {
+            this.clearCanvasForNewConfig();
+            return;
+        }
+
+        await this.loadSerializedModels(config.models);
+    }
+
+    private async loadSerializedModels(models: SerializedModel[]): Promise<void> {
+        if (models.length === 0) {
+            this.clearCanvasForNewConfig();
+            return;
+        }
+
+        for (const savedModel of models) {
             const savedPosition = new THREE.Vector3(
                 savedModel.position.x,
                 savedModel.position.y,
                 savedModel.position.z
             );
+
+            const previousCount = this.state.models.length;
 
             await this.loadModel(
                 savedModel.path,
@@ -326,6 +355,11 @@ export class Planner {
                 savedModel.rotation,
                 savedModel.scale
             );
+
+            if (this.state.models.length > previousCount && savedModel.module_key) {
+                const loadedModel = this.state.models[this.state.models.length - 1];
+                loadedModel.modelKey = savedModel.module_key;
+            }
         }
     }
 
