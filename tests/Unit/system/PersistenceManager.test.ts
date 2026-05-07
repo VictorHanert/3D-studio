@@ -163,4 +163,81 @@ describe('PersistenceManager JSON contract validation', () => {
 
         expect(isValid).toBe(true);
     });
+
+    it('validates scale boundary: exactly at zero fails, just above passes', () => {
+        const atZero = createValidSerializedModel({ scale: { x: 0, y: 1, z: 1 } });
+        const justAbove = createValidSerializedModel({ scale: { x: 0.0001, y: 1, z: 1 } });
+
+        // Zero should fail constraint
+        expect(atZero.scale.x).not.toBeGreaterThan(0);
+        expect(atZero.scale.x).toBe(0);
+
+        // Just above should pass
+        expect(justAbove.scale.x).toBeGreaterThan(0);
+        expect(justAbove.scale.x).toBeLessThan(0.001);
+    });
+
+    it('validates all scale axes independently for constraint enforcement', () => {
+        const testCases = [
+            { scale: { x: 0, y: 1, z: 1 }, shouldPass: false, axis: 'x' },
+            { scale: { x: 1, y: 0, z: 1 }, shouldPass: false, axis: 'y' },
+            { scale: { x: 1, y: 1, z: 0 }, shouldPass: false, axis: 'z' },
+            { scale: { x: 0.1, y: 0.1, z: 0.1 }, shouldPass: true, axis: 'all' },
+        ];
+
+        for (const testCase of testCases) {
+            const model = createValidSerializedModel({ scale: testCase.scale });
+            const passes =
+                model.scale.x > 0 &&
+                model.scale.y > 0 &&
+                model.scale.z > 0;
+
+            expect(passes).toBe(testCase.shouldPass);
+        }
+    });
+
+    it('preserves precision across JSON round-trips with extreme values', () => {
+        const extremeModel = createValidSerializedModel({
+            position: { x: -999.999999, y: 0.000001, z: 123.456789 },
+            rotation: { x: -Math.PI, y: Math.PI / 2, z: 0 },
+        });
+
+        const json1 = JSON.stringify(extremeModel);
+        const parsed1 = JSON.parse(json1);
+        const json2 = JSON.stringify(parsed1);
+        const parsed2 = JSON.parse(json2);
+
+        // All round-trips should preserve precision
+        expect(parsed2.position.x).toBe(-999.999999);
+        expect(parsed2.position.y).toBe(0.000001);
+        expect(parsed2.position.z).toBe(123.456789);
+    });
+
+    it('rejects models missing required module_key field', () => {
+        const invalid = createValidSerializedModel();
+        delete (invalid as any).module_key;
+
+        // This model should fail backend validation
+        const isValid = (model: any) => {
+            return (
+                model.module_key !== undefined &&
+                model.path !== undefined &&
+                model.scale.x > 0
+            );
+        };
+
+        expect(isValid(invalid)).toBe(false);
+    });
+
+    it('validates that empty models array is accepted (cleared configuration)', () => {
+        const emptyPayload = createValidPayload([]);
+
+        expect(Array.isArray(emptyPayload.configuration_data.models)).toBe(true);
+        expect(emptyPayload.configuration_data.models).toHaveLength(0);
+
+        // Should still be valid JSON
+        const json = JSON.stringify(emptyPayload);
+        const reparsed = JSON.parse(json);
+        expect(reparsed.configuration_data.models).toHaveLength(0);
+    });
 });

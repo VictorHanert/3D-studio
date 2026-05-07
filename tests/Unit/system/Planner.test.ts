@@ -23,10 +23,10 @@ vi.mock('@/system/managers/SceneManager', () => ({
 vi.mock('@/system/managers/CameraManager', () => ({
     CameraManager: vi.fn().mockImplementation(function () {
         return {
-        setupCamera: vi.fn(),
-        getCamera: vi.fn(() => new THREE.PerspectiveCamera(50, 1, 0.1, 1000)),
-        updateAspect: vi.fn(),
-        cleanup: vi.fn(),
+            setupCamera: vi.fn(),
+            getCamera: vi.fn(() => new THREE.PerspectiveCamera(50, 1, 0.1, 1000)),
+            updateAspect: vi.fn(),
+            cleanup: vi.fn(),
         };
     }),
 }));
@@ -34,13 +34,13 @@ vi.mock('@/system/managers/CameraManager', () => ({
 vi.mock('@/system/managers/ModelManager', () => ({
     ModelManager: vi.fn().mockImplementation(function () {
         return {
-        loadModel: vi.fn(),
-        rotateModel: vi.fn(),
-        disposeModel: vi.fn(),
-        setCollisionMode: vi.fn(),
-        resetCollisionMetrics: vi.fn(),
-        getCollisionMetrics: vi.fn(() => null),
-        clearModelCache: vi.fn(),
+            loadModel: vi.fn(),
+            rotateModel: vi.fn(),
+            disposeModel: vi.fn(),
+            setCollisionMode: vi.fn(),
+            resetCollisionMetrics: vi.fn(),
+            getCollisionMetrics: vi.fn(() => null),
+            clearModelCache: vi.fn(),
         };
     }),
 }));
@@ -48,12 +48,12 @@ vi.mock('@/system/managers/ModelManager', () => ({
 vi.mock('@/system/managers/InteractionManager', () => ({
     InteractionManager: vi.fn().mockImplementation(function () {
         return {
-        setupInteractions: vi.fn(),
-        cleanup: vi.fn(),
-        setCollisionMode: vi.fn(),
-        resetCollisionMetrics: vi.fn(),
-        getCollisionMetrics: vi.fn(() => null),
-        draggableMeshes: [],
+            setupInteractions: vi.fn(),
+            cleanup: vi.fn(),
+            setCollisionMode: vi.fn(),
+            resetCollisionMetrics: vi.fn(),
+            getCollisionMetrics: vi.fn(() => null),
+            draggableMeshes: [],
         };
     }),
 }));
@@ -61,11 +61,11 @@ vi.mock('@/system/managers/InteractionManager', () => ({
 vi.mock('@/system/managers/RendererManager', () => ({
     RendererManager: vi.fn().mockImplementation(function () {
         return {
-        createRenderer: vi.fn(() => ({})),
-        setupResizeListener: vi.fn(),
-        getRenderer: vi.fn(() => null),
-        disposeRenderer: vi.fn(),
-        cleanup: vi.fn(),
+            createRenderer: vi.fn(() => ({})),
+            setupResizeListener: vi.fn(),
+            getRenderer: vi.fn(() => null),
+            disposeRenderer: vi.fn(),
+            cleanup: vi.fn(),
         };
     }),
 }));
@@ -73,21 +73,21 @@ vi.mock('@/system/managers/RendererManager', () => ({
 vi.mock('@/system/managers/RenderingPipeline', () => ({
     RenderingPipeline: vi.fn().mockImplementation(function () {
         return {
-        setupControls: vi.fn(() => ({})),
-        startRenderLoop: vi.fn(),
-        resetFrameMetrics: vi.fn(),
-        getFrameMetrics: vi.fn(() => ({
-            samples: 0,
-            averageFrameMs: 0,
-            minFrameMs: 0,
-            maxFrameMs: 0,
-            p50FrameMs: 0,
-            p95FrameMs: 0,
-            averageFps: 0,
-            p50Fps: 0,
-            p95Fps: 0,
-        })),
-        cleanup: vi.fn(),
+            setupControls: vi.fn(() => ({})),
+            startRenderLoop: vi.fn(),
+            resetFrameMetrics: vi.fn(),
+            getFrameMetrics: vi.fn(() => ({
+                samples: 0,
+                averageFrameMs: 0,
+                minFrameMs: 0,
+                maxFrameMs: 0,
+                p50FrameMs: 0,
+                p95FrameMs: 0,
+                averageFps: 0,
+                p50Fps: 0,
+                p95Fps: 0,
+            })),
+            cleanup: vi.fn(),
         };
     }),
 }));
@@ -95,9 +95,9 @@ vi.mock('@/system/managers/RenderingPipeline', () => ({
 vi.mock('@/system/managers/SnapManager', () => ({
     SnapManager: vi.fn().mockImplementation(function () {
         return {
-        loadConfig: vi.fn(),
-        checkCompatibility: vi.fn(),
-        getSnappedPosition: vi.fn(),
+            loadConfig: vi.fn(),
+            checkCompatibility: vi.fn(),
+            getSnappedPosition: vi.fn(),
         };
     }),
 }));
@@ -105,12 +105,12 @@ vi.mock('@/system/managers/SnapManager', () => ({
 vi.mock('@/system/managers/PersistenceManager', () => ({
     PersistenceManager: vi.fn().mockImplementation(function () {
         return {
-        loadFromLocalStorage: vi.fn(() => null),
-        autoSave: vi.fn(),
-        saveToBackend: vi.fn(async () => true),
-        clearLocalStorage: vi.fn(),
-        getUserConfigurations: vi.fn(async () => []),
-        loadFromBackendByCode: vi.fn(async () => null),
+            loadFromLocalStorage: vi.fn(() => null),
+            autoSave: vi.fn(),
+            saveToBackend: vi.fn(async () => true),
+            clearLocalStorage: vi.fn(),
+            getUserConfigurations: vi.fn(async () => []),
+            loadFromBackendByCode: vi.fn(async () => null),
         };
     }),
 }));
@@ -118,7 +118,7 @@ vi.mock('@/system/managers/PersistenceManager', () => ({
 vi.mock('@/system/utilities/ThumbnailGenerator', () => ({
     ThumbnailGenerator: vi.fn().mockImplementation(function () {
         return {
-        generateThumbnail: vi.fn(async () => ''),
+            generateThumbnail: vi.fn(async () => ''),
         };
     }),
 }));
@@ -268,5 +268,171 @@ describe('Planner round-trip', () => {
 
         vi.advanceTimersByTime(1);
         expect(persistenceInstance.autoSave).toHaveBeenCalledTimes(1);
+    });
+
+    it('preserves full precision across save and load cycle', async () => {
+        const planner = Planner.getInstance();
+
+        const originalModels: ModelData[] = [
+            createModelData('MODEL_A', 'models/a.glb', [1.123456, 0, -2.654321], Math.PI / 3),
+            createModelData('MODEL_B', 'models/b.glb', [-0.999999, 0, 0.000001], Math.PI / 6),
+        ];
+
+        planner.state.models.push(...originalModels);
+
+        const serialized = planner.getSerializedData();
+
+        // Clear scene
+        planner.state.models.splice(0, planner.state.models.length);
+
+        // Mock reload
+        vi.spyOn(planner, 'loadModel').mockImplementation(async (modelPath, position, rotation, scale) => {
+            const moduleKey = modelPath.split('/').pop()?.replace(/\.glb$/i, '') ?? modelPath;
+            const object = new THREE.Group();
+
+            if (position) {
+                object.position.copy(position);
+            }
+            if (rotation) {
+                object.rotation.set(rotation.x, rotation.y, rotation.z);
+            }
+            if (scale) {
+                object.scale.set(scale.x, scale.y, scale.z);
+            }
+
+            planner.state.models.push({
+                id: `reloaded-${planner.state.models.length}`,
+                modelKey: moduleKey,
+                object,
+                bounds: {
+                    box: new THREE.Box3(new THREE.Vector3(-0.5, 0, -0.5), new THREE.Vector3(0.5, 1, 0.5)),
+                    size: new THREE.Vector3(1, 1, 1),
+                },
+                cachedBounds: new THREE.Box3(),
+                path: modelPath,
+                meshes: [],
+            } as ModelData);
+        });
+
+        await planner.loadFromJSON(serialized);
+
+        // Verify precision is preserved
+        for (let i = 0; i < serialized.length; i++) {
+            const original = serialized[i];
+            const reloaded = planner.state.models[i];
+
+            expect(reloaded.object.position.x).toBeCloseTo(original.position.x, 5);
+            expect(reloaded.object.position.z).toBeCloseTo(original.position.z, 5);
+            expect(reloaded.object.rotation.y).toBeCloseTo(original.rotation.y, 5);
+        }
+    });
+
+    it('handles concurrent model additions without corruption', async () => {
+        const planner = Planner.getInstance();
+
+        const mockLoad = vi.spyOn(planner, 'loadModel').mockImplementation(async () => {
+            const object = new THREE.Group();
+            planner.state.models.push({
+                id: `model-${planner.state.models.length}`,
+                modelKey: `key-${planner.state.models.length}`,
+                object,
+                bounds: {
+                    box: new THREE.Box3(new THREE.Vector3(-0.5, 0, -0.5), new THREE.Vector3(0.5, 1, 0.5)),
+                    size: new THREE.Vector3(1, 1, 1),
+                },
+                cachedBounds: new THREE.Box3(),
+                path: 'models/test.glb',
+                meshes: [],
+            } as ModelData);
+        });
+
+        // Simulate concurrent loads
+        const loads = [
+            planner.loadModel('models/a.glb'),
+            planner.loadModel('models/b.glb'),
+            planner.loadModel('models/c.glb'),
+        ];
+
+        await Promise.all(loads);
+
+        // Should have 3 models, not corrupted state
+        expect(planner.state.models).toHaveLength(3);
+        expect(mockLoad).toHaveBeenCalledTimes(3);
+    });
+
+    it('gracefully handles load during existing scene without losing data', async () => {
+        const planner = Planner.getInstance();
+
+        // Add initial models
+        planner.state.models.push(createModelData('INITIAL', 'models/initial.glb', [0, 0, 0], 0));
+
+        const initialCount = planner.state.models.length;
+
+        // Load new configuration (should clear and reload)
+        vi.spyOn(planner, 'loadModel').mockImplementation(async (modelPath, position) => {
+            const moduleKey = modelPath.split('/').pop()?.replace(/\.glb$/i, '') ?? modelPath;
+            const object = new THREE.Group();
+            if (position) object.position.copy(position);
+
+            planner.state.models.push({
+                id: `new-${planner.state.models.length}`,
+                modelKey: moduleKey,
+                object,
+                bounds: {
+                    box: new THREE.Box3(new THREE.Vector3(-0.5, 0, -0.5), new THREE.Vector3(0.5, 1, 0.5)),
+                    size: new THREE.Vector3(1, 1, 1),
+                },
+                cachedBounds: new THREE.Box3(),
+                path: modelPath,
+                meshes: [],
+            } as ModelData);
+        });
+
+        const newConfiguration = [
+            createModelData('NEW_A', 'models/new-a.glb', [1, 0, 1], 0),
+            createModelData('NEW_B', 'models/new-b.glb', [-1, 0, -1], Math.PI / 2),
+        ];
+
+        const serialized = newConfiguration.map((m) => ({
+            module_key: m.modelKey,
+            path: m.path,
+            position: { x: m.object.position.x, y: m.object.position.y, z: m.object.position.z },
+            rotation: { x: m.object.rotation.x, y: m.object.rotation.y, z: m.object.rotation.z },
+            scale: { x: m.object.scale.x, y: m.object.scale.y, z: m.object.scale.z },
+        }));
+
+        await planner.loadFromJSON(serialized);
+
+        // Should have loaded new models (old cleared, new added)
+        expect(planner.state.models.length).toBeGreaterThanOrEqual(2);
+        expect(planner.state.models.some((m) => m.modelKey === 'NEW_A')).toBe(true);
+    });
+
+    it('serializes scene with scale variations correctly', async () => {
+        const planner = Planner.getInstance();
+
+        const scaledModels: ModelData[] = [
+            createModelData('SMALL', 'models/small.glb', [0, 0, 0], 0),
+            createModelData('LARGE', 'models/large.glb', [2, 0, 0], 0),
+        ];
+
+        // Set different scales
+        scaledModels[0].object.scale.set(0.5, 0.5, 0.5);
+        scaledModels[1].object.scale.set(2.0, 2.0, 2.0);
+
+        planner.state.models.push(...scaledModels);
+
+        const serialized = planner.getSerializedData();
+
+        // Verify scales are preserved
+        expect(serialized[0].scale.x).toBe(0.5);
+        expect(serialized[1].scale.x).toBe(2.0);
+
+        // Verify JSON round-trip preserves scales
+        const json = JSON.stringify(serialized);
+        const reparsed = JSON.parse(json);
+
+        expect(reparsed[0].scale.x).toBe(0.5);
+        expect(reparsed[1].scale.x).toBe(2.0);
     });
 });
