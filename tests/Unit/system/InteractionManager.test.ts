@@ -256,6 +256,7 @@ describe('InteractionManager drag constraints', () => {
     it('enforces ground clamping: dragged models cannot move below ground (y=0)', () => {
         const model = createModel('selected', new THREE.Vector3(0, 0, 0));
         const models = ref<ModelData[]>([model]);
+        const groundHalf = 5;
         const manager = new InteractionManager(
             camera,
             renderer,
@@ -266,12 +267,34 @@ describe('InteractionManager drag constraints', () => {
             showControls,
             controlPosition,
             null,
-            5
+            groundHalf
         );
 
-        // Verify manager is created with model
-        expect(manager).toBeDefined();
-        expect(model.object.position.y).toBe(0); // Starts at ground level
+        let currentIntersection = new THREE.Vector3(0, 0, 0);
+        vi.spyOn(THREE.Raycaster.prototype, 'intersectObjects').mockReturnValueOnce([
+            { object: model.meshes[0] } as THREE.Intersection<THREE.Object3D>
+        ]);
+        vi.spyOn(THREE.Ray.prototype, 'intersectPlane').mockImplementation((_, target) => {
+            target.copy(currentIntersection);
+            return target;
+        });
+
+        manager.setupInteractions();
+
+        // Start a drag on the model
+        canvas.dispatchPointerEvent('pointerdown', { clientX: 400, clientY: 300 });
+
+        // The drag plane is horizontal at y=0, so drag intersection always has y=0.
+        // Attempt to drag far on X/Z — clampToGround must limit within ±(groundHalf - halfSize)
+        currentIntersection = new THREE.Vector3(20, 0, -20);
+        canvas.dispatchPointerEvent('pointermove', { clientX: 700, clientY: 100 });
+
+        // Model bounds size is (2, 2, 2), halfSize = (1, 1, 1)
+        // Clamped range: [-(5-1), (5-1)] = [-4, 4]
+        expect(model.object.position.x).toBeCloseTo(4);
+        expect(model.object.position.z).toBeCloseTo(-4);
+        // Y stays at ground level from the horizontal drag plane
+        expect(model.object.position.y).toBeCloseTo(0);
     });
 
 
@@ -315,7 +338,7 @@ describe('InteractionManager drag constraints', () => {
 
     it('prevents multiple simultaneous drags of different models', () => {
         const model1 = createModel('first', new THREE.Vector3(0, 0, 0));
-        const model2 = createModel('second', new THREE.Vector3(2, 0, 2));
+        const model2 = createModel('second', new THREE.Vector3(3, 0, 3));
         const models = ref<ModelData[]>([model1, model2]);
 
         const manager = new InteractionManager(
@@ -331,12 +354,32 @@ describe('InteractionManager drag constraints', () => {
             5
         );
 
-        // Verify both models are tracked
-        expect(manager.draggableMeshes).toHaveLength(2);
-        expect(model1.object.position.x).toBe(0);
-        expect(model2.object.position.x).toBe(2);
+        let currentIntersection = model1.object.position.clone();
 
-        // Verify they remain at different positions (no cross-interference)
-        expect(model2.object.position.x).not.toBe(model1.object.position.x);
+        // First pointerdown hits model1
+        vi.spyOn(THREE.Raycaster.prototype, 'intersectObjects')
+            .mockReturnValueOnce([{ object: model1.meshes[0] } as THREE.Intersection<THREE.Object3D>])
+            // Subsequent intersect calls for pointermove return empty (no new picks during drag)
+            .mockReturnValue([]);
+
+        vi.spyOn(THREE.Ray.prototype, 'intersectPlane').mockImplementation((_, target) => {
+            target.copy(currentIntersection);
+            return target;
+        });
+
+        manager.setupInteractions();
+
+        // Start drag on model1
+        canvas.dispatchPointerEvent('pointerdown', { clientX: 400, clientY: 300 });
+
+        // Move model1 to a new position
+        currentIntersection = new THREE.Vector3(2, 0, 0);
+        canvas.dispatchPointerEvent('pointermove', { clientX: 450, clientY: 300 });
+
+        expect(model1.object.position.x).toBeCloseTo(2);
+
+        // Model2 must not have moved — only one drag is active at a time
+        expect(model2.object.position.x).toBeCloseTo(3);
+        expect(model2.object.position.z).toBeCloseTo(3);
     });
 });

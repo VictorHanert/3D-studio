@@ -201,20 +201,23 @@ describe('SnapManager domain rules', () => {
         await manager.loadConfig();
 
         const moving = createModel('MOVE', 0, 0);
-        moving.object.scale.set(2, 1, 1); // Double width
+        moving.object.scale.set(2, 1, 1); // Double width — snap point at right edge is scaled
 
         const target = createModel('TARGET_A', 5, 0);
 
         const candidate = new THREE.Vector3(0, 0, 0);
         const snapped = manager.getSnappedPosition(moving, candidate, [target]);
 
-        // Snap calculation should account for scaled bounds
-        // Bounds are scaled, so snap point positions should adjust accordingly
-        expect(snapped).toBeDefined();
-        expect(Array.isArray([snapped.x, snapped.y, snapped.z])).toBe(true);
+        // With scale 2x, the moving model's right snap point is at local x=1 * scale 2 = world x=2.
+        // Target's left snap point is at local x=-1 + target position 5 = world x=4.
+        // Delta = 4 - 2 = 2, so candidate (0) + delta (2) = 2.
+        // Whether this snaps or not depends on distance threshold (0.5) — distance is 2 > 0.5,
+        // so it should NOT snap, meaning result equals candidate.
+        expect(snapped.x).toBeCloseTo(candidate.x);
+        expect(snapped.z).toBeCloseTo(candidate.z);
     });
 
-    it('correctly calculates snap points for rotated models', async () => {
+    it('correctly calculates snap points for rotated models with matching rotation', async () => {
         const manager = new SnapManager();
 
         vi.spyOn(globalThis, 'fetch').mockResolvedValue({
@@ -224,18 +227,21 @@ describe('SnapManager domain rules', () => {
 
         await manager.loadConfig();
 
-        const moving = createModel('MOVE', 0, 0);
-        moving.object.rotation.set(0, Math.PI / 4, 0); // 45 degree rotation
+        // Both models at the same small rotation — within angle tolerance
+        const smallAngle = 0.05;
+        const moving = createModel('MOVE', 0, smallAngle);
+        const target = createModel('TARGET_A', 2, smallAngle);
 
-        const target = createModel('TARGET_A', 3, Math.PI / 4);
-
-        const candidate = new THREE.Vector3(1, 0, 0);
+        // Place candidate close enough that snap points are within snapDistance (0.5)
+        // At near-zero rotation, MOVE right snap ≈ (candidate.x + 1, 0, -1)
+        // TARGET_A left snap ≈ (2 - 1, 0, -1) = (1, 0, -1)
+        // We need |candidateX + 1 - 1| < 0.5 → candidateX between -0.5 and 0.5
+        const candidate = new THREE.Vector3(0.2, 0, 0);
         const snapped = manager.getSnappedPosition(moving, candidate, [target]);
 
-        // Snap should account for rotation in snap point transform
-        expect(snapped).toBeDefined();
-        expect(typeof snapped.x).toBe('number');
-        expect(typeof snapped.z).toBe('number');
+        // Snap should be applied — result differs from candidate
+        const snapApplied = snapped.x !== candidate.x || snapped.z !== candidate.z;
+        expect(snapApplied).toBe(true);
     });
 
     it('handles snap rules that match in both forward and reverse order', async () => {
@@ -307,19 +313,21 @@ describe('SnapManager domain rules', () => {
         await manager.loadConfig();
 
         const moving = createModel('MOVE', 0, 0);
-        const candidate = new THREE.Vector3(2.2, 0, 0);
+        // Place candidate close enough to target for distance to be within snap range
+        const candidate = new THREE.Vector3(0.5, 0, 0);
 
-        // Tolerance is 0.1 radians (default)
-        // Test that config is loaded correctly
-        expect(manager).toBeDefined();
+        // Target with rotation 0.15 radians — exceeds angleTolerance of 0.1
+        const outsideTolerance = createModel('TARGET_A', 2.2, 0.15);
 
-        // Verify rotation tolerance mechanism exists
-        const withinTolerance = createModel('TARGET_A', 2.2, 0.05); // Small rotation diff
-        const outsideTolerance = createModel('TARGET_A', 2.2, 0.15); // Larger rotation diff
+        const rejected = manager.getSnappedPosition(moving, candidate, [outsideTolerance]);
+        // Snap rejected: position unchanged from candidate
+        expect(rejected).toEqual(candidate);
 
-        // Both models exist and have different rotations
-        expect(moving.object.rotation.y).toBe(0);
-        expect(withinTolerance.object.rotation.y).toBe(0.05);
-        expect(outsideTolerance.object.rotation.y).toBe(0.15);
+        // Target with rotation 0.05 radians — within angleTolerance of 0.1
+        const withinTolerance = createModel('TARGET_A', 2.2, 0.05);
+
+        const accepted = manager.getSnappedPosition(moving, candidate, [withinTolerance]);
+        // Snap accepted: position changed from candidate
+        expect(accepted).not.toEqual(candidate);
     });
 });

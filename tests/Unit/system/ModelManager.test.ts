@@ -218,21 +218,16 @@ describe('ModelManager cache and failure handling', () => {
         expect(draggableMeshes).toHaveLength(0);
     });
 
-    it('correctly derives modelKey from path when module_key is missing', () => {
+    it('correctly derives modelKey from path when module_key is missing', async () => {
+        gltfLoaderMock.loadAsync.mockResolvedValue({ scene: createLoadedScene() });
         const manager = new ModelManager(sceneManager, models as never, draggableMeshes);
 
-        // Test internal path parsing (if exposed)
-        const testPaths = [
-            '/models/connect-modular-sofa-left-armrest-a.glb',
-            '/models/chair-standard.glb',
-            'some/path/to/model.glb',
-        ];
+        // Load a model with a two-segment path: "folder/file.glb"
+        await manager.loadModel('/models/connect-modular-sofa/armrest-a.glb', new THREE.Vector3(0, 0, 0));
 
-        // This validates that path parsing is consistent
-        for (const path of testPaths) {
-            // ModelKey should be derived from filename
-            expect(path).toContain('.glb');
-        }
+        // getModelKey returns the second-to-last path segment for .glb files
+        expect(models.value).toHaveLength(1);
+        expect(models.value[0].modelKey).toBe('connect-modular-sofa');
     });
 
     it('handles disposal without throwing when model has nested children', () => {
