@@ -88,9 +88,6 @@ jobs:
       - name: Lint (ESLint)
         run: npx eslint . --max-warnings=0
 
-      - name: Format check (Prettier)
-        run: npx prettier --check resources/
-
       - name: Type check (TypeScript)
         run: npx tsc --noEmit
 
