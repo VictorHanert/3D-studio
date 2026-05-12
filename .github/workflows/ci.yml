@@ -52,7 +52,7 @@ jobs:
         run: vendor/bin/pint --test
 
       - name: Run tests (Pest)
-        run: php artisan test --compact --no-interaction
+        run: php artisan test --compact
         env:
           APP_ENV: testing
           APP_KEY: base64:Nq6xLKtNLcK5iCDSKO4aPV6KRv+9G9cxp6y0eKkqfSU=
@@ -93,6 +93,8 @@ jobs:
 
       - name: Run tests (Vitest)
         run: npx vitest run
+        env:
+          LARAVEL_BYPASS_ENV_CHECK: 1
 
   # ---------------------------------------------------------------------------
   # Docker Build Validation
