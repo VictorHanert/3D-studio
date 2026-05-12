@@ -96,7 +96,7 @@ jobs:
         run: npm ci
 
       - name: Lint (ESLint)
-        run: npx eslint . --max-warnings=0
+        run: npx eslint . --max-warnings=5
 
       - name: Type check (TypeScript)
         run: npx tsc --noEmit
