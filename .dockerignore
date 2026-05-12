@@ -1,0 +1,62 @@
+# Version control
+.git
+.gitignore
+.gitattributes
+
+# IDE / Editor
+.vscode
+.idea
+*.swp
+*.swo
+
+# CI/CD
+.github
+
+# Development dependencies & config
+node_modules
+vendor
+.env
+.env.local
+.env.*.local
+
+# Test suites
+tests
+coverage
+phpunit.xml
+vitest.config.*
+
+# Build artifacts (rebuilt in container)
+public/build
+public/hot
+
+# Documentation
+README.md
+AGENTS.md
+*.md
+!docker/*.md
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Laravel development
+storage/logs/*
+storage/framework/cache/*
+storage/framework/sessions/*
+storage/framework/views/*
+bootstrap/cache/*
+
+# Docker (prevent recursive context)
+docker-compose*.yml
+
+# Misc
+.prettierrc
+.prettierignore
+.editorconfig
+.nvmrc
+eslint.config.js
+boost.json
+!components.json
+!tsconfig.json
+!tsconfig.node.json
+!vite.config.ts
