@@ -7,7 +7,6 @@
 # ---------------------------------------------------------------------------
 # Stage 1: Composer Dependencies
 # Installs PHP vendor packages without dev dependencies.
-# Must run FIRST — the frontend stage needs /vendor for Wayfinder.
 # ---------------------------------------------------------------------------
 FROM composer:2 AS composer-deps
 
@@ -33,18 +32,12 @@ RUN composer dump-autoload --optimize --no-dev
 # ---------------------------------------------------------------------------
 # Stage 2: Frontend Build
 # Compiles Vue.js/TypeScript/Three.js via Vite into static assets.
-# Requires PHP CLI because @laravel/vite-plugin-wayfinder executes
-# `php artisan wayfinder:generate` during the build, which boots Laravel
-# and needs PDO + a database driver to resolve service providers.
 # ---------------------------------------------------------------------------
 FROM node:22-alpine AS frontend-build
 
 WORKDIR /build
 
 # 1. Install PHP CLI + extensions needed to fully boot Laravel Artisan
-#    - php84-pdo + php84-pdo_sqlite: Wayfinder boots the app, which resolves
-#      database service providers and requires a PDO driver even if unused.
-#    - We use SQLite in-memory during build to avoid needing a real DB.
 RUN apk add --no-cache \
     php84 \
     php84-cli \
@@ -75,7 +68,6 @@ COPY . .
 COPY --from=composer-deps /build/vendor ./vendor
 
 # 6. Prepare a minimal .env for artisan boot during the Vite build.
-#    Uses SQLite in-memory so no real database is needed.
 RUN cp .env.example .env 2>/dev/null || true \
     && sed -i 's/^DB_CONNECTION=.*/DB_CONNECTION=sqlite/' .env \
     && sed -i 's/^DB_DATABASE=.*/#DB_DATABASE=/' .env \
