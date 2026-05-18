@@ -36,9 +36,9 @@ class StoreConfigurationRequest extends FormRequest
             'configuration_data.models.*.rotation.y' => ['required', 'numeric'],
             'configuration_data.models.*.rotation.z' => ['required', 'numeric'],
             'configuration_data.models.*.scale' => ['required', 'array'],
-            'configuration_data.models.*.scale.x' => ['required', 'numeric', 'gt:0'],
-            'configuration_data.models.*.scale.y' => ['required', 'numeric', 'gt:0'],
-            'configuration_data.models.*.scale.z' => ['required', 'numeric', 'gt:0'],
+            'configuration_data.models.*.scale.x' => ['required', 'numeric', 'gt:0', 'max:100'],
+            'configuration_data.models.*.scale.y' => ['required', 'numeric', 'gt:0', 'max:100'],
+            'configuration_data.models.*.scale.z' => ['required', 'numeric', 'gt:0', 'max:100'],
             'configuration_data.timestamp' => ['sometimes', 'nullable', 'string'],
         ];
     }

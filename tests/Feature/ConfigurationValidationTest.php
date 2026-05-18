@@ -142,3 +142,73 @@ it('accepts a configuration with scale just above boundary (BVA: 0.02)', functio
         ->postJson('/api/configurations', $payload)
         ->assertCreated();
 });
+
+it('accepts a configuration with scale just below upper boundary (BVA: 99.99)', function () {
+    $user = User::factory()->create();
+
+    $payload = [
+        'name' => 'Below Upper Boundary Scale',
+        'configuration_data' => [
+            'models' => [
+                [
+                    'module_key' => 'CONNECT_MODULAR_SOFA_LEFT_ARMREST_A',
+                    'path' => 'models/sofa.glb',
+                    'position' => ['x' => 0, 'y' => 0, 'z' => 0],
+                    'rotation' => ['x' => 0, 'y' => 0, 'z' => 0],
+                    'scale' => ['x' => 99.99, 'y' => 99.99, 'z' => 99.99],
+                ],
+            ],
+        ],
+    ];
+
+    $this->actingAs($user)
+        ->postJson('/api/configurations', $payload)
+        ->assertCreated();
+});
+
+it('accepts a configuration with scale at exact upper boundary (BVA: 100.00)', function () {
+    $user = User::factory()->create();
+
+    $payload = [
+        'name' => 'Exact Upper Boundary Scale',
+        'configuration_data' => [
+            'models' => [
+                [
+                    'module_key' => 'CONNECT_MODULAR_SOFA_LEFT_ARMREST_A',
+                    'path' => 'models/sofa.glb',
+                    'position' => ['x' => 0, 'y' => 0, 'z' => 0],
+                    'rotation' => ['x' => 0, 'y' => 0, 'z' => 0],
+                    'scale' => ['x' => 100.00, 'y' => 100.00, 'z' => 100.00],
+                ],
+            ],
+        ],
+    ];
+
+    $this->actingAs($user)
+        ->postJson('/api/configurations', $payload)
+        ->assertCreated();
+});
+
+it('rejects a configuration with scale exceeding upper boundary (BVA: 100.01)', function () {
+    $user = User::factory()->create();
+
+    $payload = [
+        'name' => 'Above Upper Boundary Scale',
+        'configuration_data' => [
+            'models' => [
+                [
+                    'module_key' => 'CONNECT_MODULAR_SOFA_LEFT_ARMREST_A',
+                    'path' => 'models/sofa.glb',
+                    'position' => ['x' => 0, 'y' => 0, 'z' => 0],
+                    'rotation' => ['x' => 0, 'y' => 0, 'z' => 0],
+                    'scale' => ['x' => 100.01, 'y' => 1, 'z' => 1],
+                ],
+            ],
+        ],
+    ];
+
+    $this->actingAs($user)
+        ->postJson('/api/configurations', $payload)
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['configuration_data.models.0.scale.x']);
+});
