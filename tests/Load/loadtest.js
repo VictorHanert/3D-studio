@@ -15,7 +15,7 @@ export const options = {
 };
 
 export default function () {
-  // Test the static API / health endpoint for to measure raw container-performance
+  // Test the static API /health endpoint for to measure raw container-performance
   const res = http.get('https://planner-studio.azurewebsites.net/up');
 
   check(res, {

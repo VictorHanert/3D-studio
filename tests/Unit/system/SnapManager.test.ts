@@ -127,6 +127,28 @@ describe('SnapManager domain rules', () => {
         expect(accepted.x).toBeGreaterThan(0);
     });
 
+    it('accepts snap at exact angle tolerance boundary (0.10 rad)', async () => {
+        const manager = new SnapManager();
+
+        vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+            ok: true,
+            json: async () => createConfig(),
+        } as Response);
+
+        await manager.loadConfig();
+
+        const moving = createModel('MOVE', 0, 0);
+        const candidate = new THREE.Vector3(0, 0, 0);
+        const exactBoundary = createModel('TARGET_A', 2.2, 0.10);
+
+        const snapped = manager.getSnappedPosition(moving, candidate, [exactBoundary]);
+
+        // 0.10 rad is exactly at the tolerance boundary (angleDifference <= 0.1),
+        // so the snap should be accepted and position should change
+        expect(snapped).not.toEqual(candidate);
+        expect(snapped.x).toBeGreaterThan(0);
+    });
+
     it('accepts snaps when rotations differ by full turns', async () => {
         const manager = new SnapManager();
 
