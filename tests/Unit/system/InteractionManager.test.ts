@@ -382,4 +382,73 @@ describe('InteractionManager drag constraints', () => {
         expect(model2.object.position.x).toBeCloseTo(3);
         expect(model2.object.position.z).toBeCloseTo(3);
     });
+
+    it('ground clamp BVA: verifies boundary values at ±5 (groundHalf=6, halfSize=1)', () => {
+        const model = createModel('selected', new THREE.Vector3(0, 0, 0));
+        const models = ref<ModelData[]>([model]);
+        const manager = new InteractionManager(
+            camera,
+            renderer,
+            controls,
+            models,
+            model.meshes,
+            hoveredModel,
+            showControls,
+            controlPosition,
+            null,
+            6 // groundHalf=6, model halfSize.x=1 → effective boundary ±5
+        );
+
+        let currentIntersection = new THREE.Vector3(0, 0, 0);
+        vi.spyOn(THREE.Raycaster.prototype, 'intersectObjects').mockReturnValueOnce([
+            { object: model.meshes[0] } as THREE.Intersection<THREE.Object3D>
+        ]);
+        vi.spyOn(THREE.Ray.prototype, 'intersectPlane').mockImplementation((_, target) => {
+            target.copy(currentIntersection);
+            return target;
+        });
+
+        manager.setupInteractions();
+        canvas.dispatchPointerEvent('pointerdown', { clientX: 400, clientY: 300 });
+
+        // -5.02 → clamped to -5.00 (invalid: below lower boundary)
+        currentIntersection = new THREE.Vector3(-5.02, 0, 0);
+        canvas.dispatchPointerEvent('pointermove', { clientX: 100, clientY: 300 });
+        expect(model.object.position.x).toBeCloseTo(-5.00);
+
+        // -5.01 → clamped to -5.00 (invalid: just below lower boundary)
+        currentIntersection = new THREE.Vector3(-5.01, 0, 0);
+        canvas.dispatchPointerEvent('pointermove', { clientX: 100, clientY: 300 });
+        expect(model.object.position.x).toBeCloseTo(-5.00);
+
+        // -5.00 → stays at -5.00 (boundary: exactly at lower limit)
+        currentIntersection = new THREE.Vector3(-5.00, 0, 0);
+        canvas.dispatchPointerEvent('pointermove', { clientX: 100, clientY: 300 });
+        expect(model.object.position.x).toBeCloseTo(-5.00);
+
+        // -4.99 → stays at -4.99 (valid: just inside lower boundary)
+        currentIntersection = new THREE.Vector3(-4.99, 0, 0);
+        canvas.dispatchPointerEvent('pointermove', { clientX: 100, clientY: 300 });
+        expect(model.object.position.x).toBeCloseTo(-4.99);
+
+        // 4.99 → stays at 4.99 (valid: just inside upper boundary)
+        currentIntersection = new THREE.Vector3(4.99, 0, 0);
+        canvas.dispatchPointerEvent('pointermove', { clientX: 700, clientY: 300 });
+        expect(model.object.position.x).toBeCloseTo(4.99);
+
+        // 5.00 → stays at 5.00 (boundary: exactly at upper limit)
+        currentIntersection = new THREE.Vector3(5.00, 0, 0);
+        canvas.dispatchPointerEvent('pointermove', { clientX: 700, clientY: 300 });
+        expect(model.object.position.x).toBeCloseTo(5.00);
+
+        // 5.01 → clamped to 5.00 (invalid: just above upper boundary)
+        currentIntersection = new THREE.Vector3(5.01, 0, 0);
+        canvas.dispatchPointerEvent('pointermove', { clientX: 700, clientY: 300 });
+        expect(model.object.position.x).toBeCloseTo(5.00);
+
+        // 5.02 → clamped to 5.00 (invalid: above upper boundary)
+        currentIntersection = new THREE.Vector3(5.02, 0, 0);
+        canvas.dispatchPointerEvent('pointermove', { clientX: 700, clientY: 300 });
+        expect(model.object.position.x).toBeCloseTo(5.00);
+    });
 });

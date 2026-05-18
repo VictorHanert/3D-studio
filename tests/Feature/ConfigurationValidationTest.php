@@ -73,7 +73,7 @@ it('rejects a configuration with zero scale (BVA boundary)', function () {
         ->assertJsonValidationErrors(['configuration_data.models.0.scale.x']);
 });
 
-it('rejects a configuration with negative scale (BVA invalid partition)', function () {
+it('rejects a configuration with negative scale (BVA: -0.01)', function () {
     $user = User::factory()->create();
 
     $payload = [
@@ -85,7 +85,7 @@ it('rejects a configuration with negative scale (BVA invalid partition)', functi
                     'path' => 'models/sofa.glb',
                     'position' => ['x' => 0, 'y' => 0, 'z' => 0],
                     'rotation' => ['x' => 0, 'y' => 0, 'z' => 0],
-                    'scale' => ['x' => -0.1, 'y' => 1, 'z' => 1],
+                    'scale' => ['x' => -0.01, 'y' => 1, 'z' => 1],
                 ],
             ],
         ],
@@ -97,7 +97,7 @@ it('rejects a configuration with negative scale (BVA invalid partition)', functi
         ->assertJsonValidationErrors(['configuration_data.models.0.scale.x']);
 });
 
-it('accepts a configuration with minimal positive scale (BVA valid boundary)', function () {
+it('accepts a configuration with minimal positive scale (BVA: 0.01)', function () {
     $user = User::factory()->create();
 
     $payload = [
@@ -109,7 +109,30 @@ it('accepts a configuration with minimal positive scale (BVA valid boundary)', f
                     'path' => 'models/sofa.glb',
                     'position' => ['x' => 0, 'y' => 0, 'z' => 0],
                     'rotation' => ['x' => 0, 'y' => 0, 'z' => 0],
-                    'scale' => ['x' => 0.001, 'y' => 0.001, 'z' => 0.001],
+                    'scale' => ['x' => 0.01, 'y' => 0.01, 'z' => 0.01],
+                ],
+            ],
+        ],
+    ];
+
+    $this->actingAs($user)
+        ->postJson('/api/configurations', $payload)
+        ->assertCreated();
+});
+
+it('accepts a configuration with scale just above boundary (BVA: 0.02)', function () {
+    $user = User::factory()->create();
+
+    $payload = [
+        'name' => 'Above Boundary Scale Plan',
+        'configuration_data' => [
+            'models' => [
+                [
+                    'module_key' => 'CONNECT_MODULAR_SOFA_LEFT_ARMREST_A',
+                    'path' => 'models/sofa.glb',
+                    'position' => ['x' => 0, 'y' => 0, 'z' => 0],
+                    'rotation' => ['x' => 0, 'y' => 0, 'z' => 0],
+                    'scale' => ['x' => 0.02, 'y' => 0.02, 'z' => 0.02],
                 ],
             ],
         ],

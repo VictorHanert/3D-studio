@@ -352,4 +352,58 @@ describe('SnapManager domain rules', () => {
         // Snap accepted: position changed from candidate
         expect(accepted).not.toEqual(candidate);
     });
+
+    it('snap distance BVA: accepts 0.49 and 0.50, rejects 0.51 and 0.52', async () => {
+        const manager = new SnapManager();
+
+        vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+            ok: true,
+            json: async () => createConfig(),
+        } as Response);
+
+        await manager.loadConfig();
+
+        const moving = createModel('MOVE', 0, 0);
+        const target = createModel('TARGET_A', 2, 0);
+
+        // Geometry: MOVE right snap = (candidate.x + 1, 0, -1)
+        //           TARGET left snap = (1, 0, -1)
+        //           Distance = |candidate.x|
+
+        // 0.49 — just below boundary → accepted
+        const snap049 = manager.getSnappedPosition(moving, new THREE.Vector3(0.49, 0, 0), [target]);
+        expect(snap049.x).toBeCloseTo(0, 1);
+
+        // 0.50 — at boundary (<=) → accepted
+        const snap050 = manager.getSnappedPosition(moving, new THREE.Vector3(0.50, 0, 0), [target]);
+        expect(snap050.x).toBeCloseTo(0, 1);
+
+        // 0.51 — just above boundary → rejected
+        const snap051 = manager.getSnappedPosition(moving, new THREE.Vector3(0.51, 0, 0), [target]);
+        expect(snap051.x).toBeCloseTo(0.51);
+
+        // 0.52 — above boundary → rejected
+        const snap052 = manager.getSnappedPosition(moving, new THREE.Vector3(0.52, 0, 0), [target]);
+        expect(snap052.x).toBeCloseTo(0.52);
+    });
+
+    it('rejects snap at 0.12 rad beyond angle tolerance (BVA)', async () => {
+        const manager = new SnapManager();
+
+        vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+            ok: true,
+            json: async () => createConfig(),
+        } as Response);
+
+        await manager.loadConfig();
+
+        const moving = createModel('MOVE', 0, 0);
+        const candidate = new THREE.Vector3(0, 0, 0);
+        const target = createModel('TARGET_A', 2.2, 0.12);
+
+        const snapped = manager.getSnappedPosition(moving, candidate, [target]);
+
+        // 0.12 rad exceeds tolerance of 0.1 → snap rejected, position unchanged
+        expect(snapped).toEqual(candidate);
+    });
 });
