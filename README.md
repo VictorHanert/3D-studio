@@ -1,40 +1,75 @@
-# Planner Studio
+# The Planner Studio - Bachelor Project 2026
 
-A 3D furniture planning and design application built with Laravel and Vue.js.
+A 3D configurator built with **Vue.js**, **Three.js**, and **Laravel 12**.
 
-## Features
+This repository contains the implemented logic behind the system's optimized interaction pipeline (OBB vs. AABB), data validation contracts (Boundary Value Analysis), and containerized cloud infrastructure.
 
-- **3D Furniture Planning**: Design and visualize modular furniture layouts
-- **Modular Components**: Configure and arrange furniture modules
-- **User Authentication**: Secure user accounts with Laravel Fortify
-- **Responsive Design**: Works on desktop and mobile devices
-- **Dark Mode Support**: Toggle between light and dark themes
+---
 
-## Tech Stack
+## Live Demonstration (Azure Cloud)
 
-- **Backend**: Laravel 12, PHP 8.2+
-- **Frontend**: Vue 3, TypeScript, Inertia.js
-- **Styling**: Tailwind CSS 4
-- **Database**: SQLite (configurable)
-- **Authentication**: Laravel Fortify
+Fully deployed to a production environment on Azure App Service via the project's CI/CD pipeline:
 
-## Getting Started
+**Link:** [https://planner-studio.azurewebsites.net](https://planner-studio.azurewebsites.net)
 
-1. Clone the repository
-2. Install PHP dependencies: `composer install`
-3. Install Node dependencies: `npm install`
-4. Copy environment file: `cp .env.example .env`
-5. Generate application key: `php artisan key:generate`
-6. Run database migrations: `php artisan migrate`
-7. Build assets: `npm run build`
-8. Start the development server: `php artisan serve`
+Create your own account or use the test user credentials:
 
-## Development
+*   **Username:** `TestUser1`
+*   **Password:** `Password12345678_!`
+---
 
-- Start the frontend dev server: `npm run dev`
-- Format code: `npm run format`
-- Lint code: `npm run lint`
+## Local Installation
 
-## License
+This is fully supported via the included Docker environment.
 
-MIT
+### Option A: Docker
+
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/VictorHanert/3D-studio.git
+   cd 3D-studio
+   ```
+2. **Copy environment variables:**
+   ```bash
+   cp .env.example .env
+   ```
+3. **Start the Docker environment:**
+   ```bash
+   docker compose up -d
+   ```
+4. **Install dependencies and setup the database (run inside the app container):**
+   ```bash
+   docker compose exec app composer install
+   docker compose exec app npm ci
+   docker compose exec app npm run build
+   docker compose exec app php artisan key:generate
+   docker compose exec app php artisan migrate
+   ```
+5. **Open the application:**
+   Navigate to [http://localhost:8080](http://localhost:8080) in your web browser.
+
+### Option B: Manual Installation (Laravel Herd / Valet)
+Requires PHP 8.2+, Node.js, and MySQL/SQLite:
+
+```bash
+git clone https://github.com/VictorHanert/3D-studio.git
+# Navigate to the project root
+cd 3D-studio
+composer install
+npm ci
+cp .env.example .env
+php artisan key:generate
+# Ensure your .env points to a valid database
+php artisan migrate
+npm run dev
+```
+
+### Running Tests
+
+```bash
+npm run test
+php artisan test
+```
+
+---
+*Developed by Victor Hanert for Bachelor Project, 2026.*
