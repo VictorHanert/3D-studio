@@ -14,7 +14,7 @@ Fully deployed to a production environment on Azure App Service via the project'
 
 Create your own account or use the test user credentials:
 
-*   **Username:** `TestUser1`
+*   **Username:** `test@example.com`
 *   **Password:** `Password12345678_!`
 ---
 

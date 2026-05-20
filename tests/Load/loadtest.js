@@ -1,12 +1,14 @@
+/* global __ENV, __VU, __ITER */
+
 import http from 'k6/http';
 import { check, sleep } from 'k6';
 
-// Miljoevariabler: overfoer via -e flag til k6
+// Environment variables: transfer via -e flag to k6
 const BASE_URL = __ENV.BASE_URL || 'https://planner-studio.azurewebsites.net';
-const USERNAME = __ENV.API_USERNAME || 'TestUser1';
+const USERNAME = __ENV.API_USERNAME || 'test@example.com';
 const PASSWORD = __ENV.API_PASSWORD || 'Password12345678_!';
 
-// Session-cookie-navn: Str::slug(APP_NAME) + '-session'
+// Session-cookie name: Str::slug(APP_NAME) + '-session'
 // APP_NAME=PlannerStudio => 'plannerstudio-session'
 const SESSION_COOKIE = __ENV.SESSION_COOKIE || 'plannerstudio-session';
 
@@ -17,11 +19,11 @@ export const options = {
     { duration: '30s', target: 0 },  // Ramp-down
   ],
   thresholds: {
-    http_req_duration: ['p(95)<500'], // Goal: 95% of requests under 500ms (realistisk for DB-inserts paa Azure B1)
+    http_req_duration: ['p(95)<500'], // Goal: 95% of requests under 500ms
   },
 };
 
-// Generer 20 unikke moduler for at simulere den komplekse belastning
+// Generate 20 unique modules to simulate the complex load
 function generateModules() {
   const models = [];
   for (let i = 0; i < 20; i++) {
