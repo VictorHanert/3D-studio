@@ -109,7 +109,7 @@ export default function (data) {
 
   // Build payload with unique name per VU and iteration
   const payload = JSON.stringify({
-    name: `Loadtest Config VU-${__VU}-ITER-${__ITER}`,
+    name: `Stresstest Config VU-${__VU}-ITER-${__ITER}`,
     configuration_data: {
       models: generateModules(),
     },
