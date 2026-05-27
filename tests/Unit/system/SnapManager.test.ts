@@ -406,4 +406,355 @@ describe('SnapManager domain rules', () => {
         // 0.12 rad exceeds tolerance of 0.1 → snap rejected, position unchanged
         expect(snapped).toEqual(candidate);
     });
+
+    // =========================================================================
+    // GROUP 1: loadConfig() – fejlhåndtering og dedup-guard
+    // =========================================================================
+
+    it('sets config to null when fetch returns a non-ok HTTP response', async () => {
+        const manager = new SnapManager();
+
+        vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+            ok: false,
+            status: 503,
+            json: async () => ({}),
+        } as Response);
+
+        await manager.loadConfig();
+
+        // Config er null → getSnappedPosition returnerer candidatePosition uændret
+        const candidate = new THREE.Vector3(1, 0, 0);
+        expect(manager.getSnappedPosition(createModel('MOVE', 0, 0), candidate, [])).toEqual(candidate);
+    });
+
+    it('handles a fetch network error gracefully and leaves config as null', async () => {
+        const manager = new SnapManager();
+
+        vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('Network failure'));
+        const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+        await manager.loadConfig();
+
+        expect(consoleSpy).toHaveBeenCalledWith('SnapManager: Failed to load config', expect.any(Error));
+
+        const candidate = new THREE.Vector3(5, 0, 5);
+        expect(manager.getSnappedPosition(createModel('MOVE', 0, 0), candidate, [])).toEqual(candidate);
+    });
+
+    it('deduplicates concurrent loadConfig calls, only performing one fetch', async () => {
+        const manager = new SnapManager();
+
+        const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+            ok: true,
+            json: async () => createConfig(),
+        } as Response);
+
+        // Kald to gange uden at awaite det første → kun ét fetch-kald
+        const p1 = manager.loadConfig();
+        const p2 = manager.loadConfig();
+
+        await Promise.all([p1, p2]);
+
+        expect(fetchSpy).toHaveBeenCalledTimes(1);
+    });
+
+    // =========================================================================
+    // GROUP 2: checkCompatibility() – null-guards og udtømt loop
+    // =========================================================================
+
+    it('returns false from checkCompatibility when config has not been loaded', () => {
+        const manager = new SnapManager();
+
+        expect(manager.checkCompatibility(createModel('MOVE', 0, 0), createModel('TARGET_A', 2, 0))).toBe(false);
+    });
+
+    it('returns false when both models are in config but share no compatible snap rule', async () => {
+        const manager = new SnapManager();
+
+        vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+            ok: true,
+            json: async () => ({
+                defaultSnapDistance: 0.5,
+                models: {
+                    MODEL_X: { points: [{ id: 'px', side: 'right' as const, type: 'type_x' }] },
+                    MODEL_Y: { points: [{ id: 'py', side: 'left' as const, type: 'type_y' }] },
+                },
+                rules: [],
+            }),
+        } as Response);
+
+        await manager.loadConfig();
+
+        // Begge modeller er i config, men ingen regel matcher type_x ↔ type_y
+        expect(manager.checkCompatibility(createModel('MODEL_X', 0, 0), createModel('MODEL_Y', 2, 0))).toBe(false);
+    });
+
+    // =========================================================================
+    // GROUP 3: getSnappedPosition() – null-guards og kanttilfælde
+    // =========================================================================
+
+    it('returns candidatePosition unchanged from getSnappedPosition when config is not loaded', () => {
+        const manager = new SnapManager();
+
+        const candidate = new THREE.Vector3(3, 0, 3);
+        expect(
+            manager.getSnappedPosition(createModel('MOVE', 0, 0), candidate, [createModel('TARGET_A', 2, 0)]),
+        ).toEqual(candidate);
+    });
+
+    it('returns candidatePosition when the moving model key is not in the snap config', async () => {
+        const manager = new SnapManager();
+
+        vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+            ok: true,
+            json: async () => createConfig(),
+        } as Response);
+
+        await manager.loadConfig();
+
+        const candidate = new THREE.Vector3(1, 0, 0);
+        expect(
+            manager.getSnappedPosition(createModel('UNKNOWN_KEY', 0, 0), candidate, [createModel('TARGET_A', 2, 0)]),
+        ).toEqual(candidate);
+    });
+
+    it('skips the moving model itself and unknown models in the candidates list', async () => {
+        const manager = new SnapManager();
+
+        vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+            ok: true,
+            json: async () => createConfig(),
+        } as Response);
+
+        await manager.loadConfig();
+
+        const moving = createModel('MOVE', 0, 0);
+        const unknown = createModel('NOT_IN_CONFIG', 2, 0);
+        const candidate = new THREE.Vector3(0, 0, 0);
+
+        // moving indgår i listen (self-skip) og unknown er ikke i config
+        const result = manager.getSnappedPosition(moving, candidate, [moving, unknown]);
+        expect(result).toEqual(candidate);
+    });
+
+    it('skips point pairs that have no matching snap rule and returns candidatePosition', async () => {
+        const manager = new SnapManager();
+
+        vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+            ok: true,
+            json: async () => ({
+                defaultSnapDistance: 0.5,
+                models: {
+                    MODEL_A: { points: [{ id: 'pa', side: 'right' as const, type: 'type_a' }] },
+                    MODEL_B: { points: [{ id: 'pb', side: 'left' as const, type: 'type_b' }] },
+                },
+                rules: [],
+            }),
+        } as Response);
+
+        await manager.loadConfig();
+
+        const candidate = new THREE.Vector3(0, 0, 0);
+        expect(
+            manager.getSnappedPosition(createModel('MODEL_A', 0, 0), candidate, [createModel('MODEL_B', 2, 0)]),
+        ).toEqual(candidate);
+    });
+
+    it('applies backward rule matching when the moving point type matches typeB of a rule', async () => {
+        const manager = new SnapManager();
+
+        vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+            ok: true,
+            // Regel: typeA='conn_a', typeB='conn_b'
+            // Moving model har type 'conn_b' → backward match: rule.typeA===otherType && rule.typeB===movingType
+            json: async () => ({
+                defaultSnapDistance: 0.5,
+                models: {
+                    MOVING: { points: [{ id: 'pm', side: 'right' as const, type: 'conn_b', depthSide: 'back' as const }] },
+                    TARGET: { points: [{ id: 'pt', side: 'left' as const, type: 'conn_a', depthSide: 'back' as const }] },
+                },
+                rules: [{ typeA: 'conn_a', typeB: 'conn_b', snapDistance: 0.5 }],
+            }),
+        } as Response);
+
+        await manager.loadConfig();
+
+        const moving = createModel('MOVING', 0, 0);
+        const target = createModel('TARGET', 2, 0);
+        const candidate = new THREE.Vector3(0.5, 0, 0);
+
+        const snapped = manager.getSnappedPosition(moving, candidate, [target]);
+        expect(snapped.x).toBeCloseTo(0, 1);
+    });
+
+    it('uses 0.5 as fallback when config omits defaultSnapDistance and rule omits snapDistance', async () => {
+        const manager = new SnapManager();
+
+        vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+            ok: true,
+            json: async () => ({
+                // defaultSnapDistance bevidst udeladt → ?? 0.5 fallback
+                models: {
+                    MOVE: { points: [{ id: 'move-right', side: 'right' as const, type: 'armrest_right', depthSide: 'back' as const }] },
+                    TARGET_A: { points: [{ id: 'target-left', side: 'left' as const, type: 'armrest_left', depthSide: 'back' as const }] },
+                },
+                // snapDistance bevidst udeladt på reglen → ?? defaultSnapDistance fallback
+                rules: [{ typeA: 'armrest_right', typeB: 'armrest_left', snapDistance: undefined as unknown as number }],
+            }),
+        } as Response);
+
+        await manager.loadConfig();
+
+        const moving = createModel('MOVE', 0, 0);
+        const target = createModel('TARGET_A', 2, 0);
+
+        // 0.5 er præcis ved grænsen (<=) → snap skal accepteres
+        const snapped = manager.getSnappedPosition(moving, new THREE.Vector3(0.5, 0, 0), [target]);
+        expect(snapped.x).toBeCloseTo(0, 1);
+
+        // 0.51 er over grænsen → snap skal afvises
+        const notSnapped = manager.getSnappedPosition(moving, new THREE.Vector3(0.51, 0, 0), [target]);
+        expect(notSnapped.x).toBeCloseTo(0.51);
+    });
+
+    // =========================================================================
+    // GROUP 4: getLocalSnapPoint() – front/back-geometri (Kategori C)
+    // =========================================================================
+
+    it('calculates correct world snap point for front and back side snap points', async () => {
+        const manager = new SnapManager();
+
+        vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+            ok: true,
+            json: async () => ({
+                defaultSnapDistance: 0.5,
+                models: {
+                    FRONT_MOD: { points: [{ id: 'front-snap', side: 'front' as const, type: 'front_conn' }] },
+                    BACK_MOD: { points: [{ id: 'back-snap', side: 'back' as const, type: 'front_conn' }] },
+                },
+                rules: [{ typeA: 'front_conn', typeB: 'front_conn', snapDistance: 0.5 }],
+            }),
+        } as Response);
+
+        await manager.loadConfig();
+
+        const moving = createModel('FRONT_MOD', 0, 0);
+        const target = createModel('BACK_MOD', 0, 0);
+        // BACK_MOD placeres ved z=1.5:
+        //   back snap lokal: z = bounds.min.z = -1 → verden: (0, 0, 1.5-1) = (0, 0, 0.5)
+        // FRONT_MOD ved candidate (0,0,0):
+        //   front snap lokal: z = bounds.max.z = 1 → verden: (0, 0, 1)
+        // Distance = 0.5 ≤ 0.5 → SNAP; delta.z = -0.5
+        target.object.position.set(0, 0, 1.5);
+
+        const candidate = new THREE.Vector3(0, 0, 0);
+        const snapped = manager.getSnappedPosition(moving, candidate, [target]);
+
+        expect(snapped.z).toBeCloseTo(-0.5, 1);
+    });
+
+    it('offsets z for left-side snap point when depthSide is front', async () => {
+        const manager = new SnapManager();
+
+        vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+            ok: true,
+            json: async () => ({
+                defaultSnapDistance: 0.5,
+                models: {
+                    LEFT_FRONT_DEPTH: { points: [{ id: 'lfd', side: 'left' as const, type: 'connector', depthSide: 'front' as const }] },
+                    RIGHT_FRONT_DEPTH: { points: [{ id: 'rfd', side: 'right' as const, type: 'connector', depthSide: 'front' as const }] },
+                },
+                rules: [{ typeA: 'connector', typeB: 'connector', snapDistance: 0.5 }],
+            }),
+        } as Response);
+
+        await manager.loadConfig();
+
+        // Moving LEFT_FRONT_DEPTH ved candidate (0.3, 0, 0):
+        //   left snap: x=bounds.min.x=-1, depthSide:'front' → z=bounds.max.z=1 → lokal (-1,0,1)
+        //   verden: (-0.7, 0, 1)
+        // Target RIGHT_FRONT_DEPTH ved position (-1.5, 0, 0):
+        //   right snap: x=bounds.max.x=1, depthSide:'front' → z=bounds.max.z=1 → lokal (1,0,1)
+        //   verden: (-0.5, 0, 1)
+        // Distance = 0.2 ≤ 0.5 → SNAP; delta.x = 0.2
+        const moving = createModel('LEFT_FRONT_DEPTH', 0, 0);
+        const target = createModel('RIGHT_FRONT_DEPTH', -1.5, 0);
+        const candidate = new THREE.Vector3(0.3, 0, 0);
+
+        const snapped = manager.getSnappedPosition(moving, candidate, [target]);
+        expect(snapped.x).toBeCloseTo(0.5, 1);
+    });
+
+    it('does not offset z for left-side snap point when depthSide is omitted', async () => {
+        const manager = new SnapManager();
+
+        vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+            ok: true,
+            json: async () => ({
+                defaultSnapDistance: 0.5,
+                models: {
+                    LEFT_NO_DEPTH: { points: [{ id: 'lnd', side: 'left' as const, type: 'connector' }] },
+                    RIGHT_NO_DEPTH: { points: [{ id: 'rnd', side: 'right' as const, type: 'connector' }] },
+                },
+                rules: [{ typeA: 'connector', typeB: 'connector', snapDistance: 0.5 }],
+            }),
+        } as Response);
+
+        await manager.loadConfig();
+
+        // Ingen depthSide → z forbliver 0 for left/right sider
+        // Moving LEFT_NO_DEPTH ved candidate (0.3, 0, 0):
+        //   left snap: x=-1, z=0 → verden (-0.7, 0, 0)
+        // Target RIGHT_NO_DEPTH ved position (-1.5, 0, 0):
+        //   right snap: x=1, z=0 → verden (-0.5, 0, 0)
+        // Distance = 0.2 ≤ 0.5 → SNAP; delta.x = 0.2
+        const moving = createModel('LEFT_NO_DEPTH', 0, 0);
+        const target = createModel('RIGHT_NO_DEPTH', -1.5, 0);
+        const candidate = new THREE.Vector3(0.3, 0, 0);
+
+        const snapped = manager.getSnappedPosition(moving, candidate, [target]);
+        expect(snapped.x).toBeCloseTo(0.5, 1);
+        expect(snapped.z).toBeCloseTo(0, 1);
+    });
+
+    it('offsets x for front-side snap points with widthSide left and right', async () => {
+        const manager = new SnapManager();
+
+        vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+            ok: true,
+            json: async () => ({
+                defaultSnapDistance: 0.5,
+                models: {
+                    FRONT_LEFT: { points: [{ id: 'fl', side: 'front' as const, type: 'conn', widthSide: 'left' as const }] },
+                    FRONT_RIGHT: { points: [{ id: 'fr', side: 'front' as const, type: 'conn', widthSide: 'right' as const }] },
+                    BACK_MOD: { points: [{ id: 'bm', side: 'back' as const, type: 'conn' }] },
+                },
+                rules: [{ typeA: 'conn', typeB: 'conn', snapDistance: 0.5 }],
+            }),
+        } as Response);
+
+        await manager.loadConfig();
+
+        const candidate = new THREE.Vector3(0, 0, 0);
+
+        // widthSide:'left' → snap lokal (-1, 0, 1)
+        // Target BACK_MOD ved (-1, 0, 1.5): back snap lokal (0,0,-1) → verden (-1, 0, 0.5)
+        // Distance = 0.5 ≤ 0.5 → SNAP; delta.z = -0.5
+        const movingLeft = createModel('FRONT_LEFT', 0, 0);
+        const targetForLeft = createModel('BACK_MOD', 0, 0);
+        targetForLeft.object.position.set(-1, 0, 1.5);
+
+        const snappedLeft = manager.getSnappedPosition(movingLeft, candidate, [targetForLeft]);
+        expect(snappedLeft.z).toBeCloseTo(-0.5, 1);
+
+        // widthSide:'right' → snap lokal (1, 0, 1)
+        // Target BACK_MOD ved (1, 0, 1.5): back snap lokal (0,0,-1) → verden (1, 0, 0.5)
+        // Distance = 0.5 ≤ 0.5 → SNAP; delta.z = -0.5
+        const movingRight = createModel('FRONT_RIGHT', 0, 0);
+        const targetForRight = createModel('BACK_MOD', 0, 0);
+        targetForRight.object.position.set(1, 0, 1.5);
+
+        const snappedRight = manager.getSnappedPosition(movingRight, candidate, [targetForRight]);
+        expect(snappedRight.z).toBeCloseTo(-0.5, 1);
+    });
 });
