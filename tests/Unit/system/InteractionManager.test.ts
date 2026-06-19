@@ -112,6 +112,7 @@ describe('InteractionManager drag constraints', () => {
             showControls,
             controlPosition,
             null,
+            vi.fn(), // onDragEnd callback
             5
         );
 
@@ -150,6 +151,7 @@ describe('InteractionManager drag constraints', () => {
             showControls,
             controlPosition,
             null,
+            vi.fn(), // onDragEnd callback
             5
         );
 
@@ -191,6 +193,7 @@ describe('InteractionManager drag constraints', () => {
             showControls,
             controlPosition,
             null,
+            vi.fn(), // onDragEnd callback
             5
         );
 
@@ -223,6 +226,7 @@ describe('InteractionManager drag constraints', () => {
             showControls,
             controlPosition,
             null,
+            vi.fn(), // onDragEnd callback
             5
         );
 
@@ -267,6 +271,7 @@ describe('InteractionManager drag constraints', () => {
             showControls,
             controlPosition,
             null,
+            vi.fn(), // onDragEnd callback
             groundHalf
         );
 
@@ -297,7 +302,6 @@ describe('InteractionManager drag constraints', () => {
         expect(model.object.position.y).toBeCloseTo(0);
     });
 
-
     it('enforces ground boundary: dragged models cannot exceed ground extent (±5 units)', () => {
         const model = createModel('selected', new THREE.Vector3(0, 0, 0));
         const models = ref<ModelData[]>([model]);
@@ -312,6 +316,7 @@ describe('InteractionManager drag constraints', () => {
             showControls,
             controlPosition,
             null,
+            vi.fn(), // onDragEnd callback
             groundHalf
         );
 
@@ -351,6 +356,7 @@ describe('InteractionManager drag constraints', () => {
             showControls,
             controlPosition,
             null,
+            vi.fn(), // onDragEnd callback
             5
         );
 
@@ -396,6 +402,7 @@ describe('InteractionManager drag constraints', () => {
             showControls,
             controlPosition,
             null,
+            vi.fn(), // onDragEnd callback
             6 // groundHalf=6, model halfSize.x=1 → effective boundary ±5
         );
 
