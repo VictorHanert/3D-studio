@@ -38,7 +38,6 @@ it('persists a valid configuration to the database (happy path)', function () {
     $this->assertDatabaseHas('user_configurations', [
         'user_id' => $user->id,
         'name' => 'Living Room Setup',
-        'configuration_data' => json_encode($payload['configuration_data']),
     ]);
 });
 

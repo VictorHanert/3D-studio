@@ -62,12 +62,12 @@ export class Planner {
         }
     }
 
-    public init(canvas: HTMLCanvasElement): void {
+    public async init(canvas: HTMLCanvasElement): Promise<void> {
         if (!canvas || this.state.isInitialized) return;
 
         const renderer = this.rendererManager.createRenderer(canvas);
         this.setupScene(canvas);
-        this.setupManagers(renderer);
+        await this.setupManagers(renderer);
         this.setupAutoSave();
         this.setupRenderingPipeline(renderer);
 
@@ -99,14 +99,14 @@ export class Planner {
         this.cameraManager.setupCamera();
     }
 
-    private setupManagers(renderer: THREE.WebGLRenderer): void {
+    private async setupManagers(renderer: THREE.WebGLRenderer): Promise<void> {
         const camera = this.cameraManager!.getCamera();
         if (!camera || !this.sceneManager) return;
 
         const controls = this.renderingPipeline.setupControls(camera, renderer);
 
         this.snapManager = new SnapManager();
-        void this.snapManager.loadConfig();
+        await this.snapManager.loadConfig();
 
         this.interactionManager = new InteractionManager(
             camera,

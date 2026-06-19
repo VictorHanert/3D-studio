@@ -19,13 +19,10 @@ const isInitializing = ref(true);
 
 const { success: toastSuccess, error: toastError } = useToast();
 
-onMounted(() => {
+onMounted(async () => {
     if (canvasRef.value) {
-        planner.init(canvasRef.value);
-        // Show loading for a bit to allow deferred operations to complete
-        setTimeout(() => {
-            isInitializing.value = false;
-        }, 500);
+        await planner.init(canvasRef.value);
+        isInitializing.value = false;
     }
 });
 
@@ -67,11 +64,10 @@ const openSaveModal = (): void => {
 };
 
 const loadConfiguration = async (configId: number): Promise<void> => {
-    planner.clearCanvasForNewConfig();
-    const configs = await planner.getUserConfigurations();
-    const config = configs.find((c: any) => c.id === configId);
+    const config = savedConfigs.value.find((c: any) => c.id === configId);
 
     if (config && config.configuration_data) {
+        planner.clearCanvasForNewConfig();
         await planner.loadFromConfiguration(config.configuration_data);
         showLoadModal.value = false;
         toastSuccess('Configuration loaded successfully!');
@@ -81,6 +77,7 @@ const loadConfiguration = async (configId: number): Promise<void> => {
 };
 
 const loadConfigByShareCode = async (code: string): Promise<void> => {
+    planner.clearCanvasForNewConfig();
     const success = await planner.loadConfigurationByCode(code);
     if (success) {
         toastSuccess('Configuration loaded from share code!');

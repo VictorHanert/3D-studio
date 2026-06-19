@@ -240,7 +240,7 @@ describe('Planner round-trip', () => {
 
     it('clears the scene when loadFromJSON receives empty or invalid data', async () => {
         const planner = Planner.getInstance();
-        planner.init({} as HTMLCanvasElement);
+        await planner.init({} as HTMLCanvasElement);
 
         planner.state.models.push(createModelData('CONNECT_MODULAR_SOFA_LEFT_ARMREST_A', 'models/a.glb', [0, 0, 0], 0));
 
@@ -257,7 +257,7 @@ describe('Planner round-trip', () => {
         vi.useFakeTimers();
 
         const planner = Planner.getInstance();
-        planner.init({} as HTMLCanvasElement);
+        await planner.init({} as HTMLCanvasElement);
 
         const persistenceInstance = vi.mocked(PersistenceManager).mock.instances.at(-1) as { autoSave: ReturnType<typeof vi.fn> };
         expect(persistenceInstance.autoSave).not.toHaveBeenCalled();
@@ -360,15 +360,11 @@ describe('Planner round-trip', () => {
         expect(mockLoad).toHaveBeenCalledTimes(3);
     });
 
-    it('gracefully handles load during existing scene without losing data', async () => {
+    it('appends models to an existing scene when loadFromJSON is called without prior clear', async () => {
         const planner = Planner.getInstance();
 
-        // Add initial models
         planner.state.models.push(createModelData('INITIAL', 'models/initial.glb', [0, 0, 0], 0));
 
-        const initialCount = planner.state.models.length;
-
-        // Load new configuration (should clear and reload)
         vi.spyOn(planner, 'loadModel').mockImplementation(async (modelPath, position) => {
             const moduleKey = modelPath.split('/').pop()?.replace(/\.glb$/i, '') ?? modelPath;
             const object = new THREE.Group();
@@ -403,9 +399,11 @@ describe('Planner round-trip', () => {
 
         await planner.loadFromJSON(serialized);
 
-        // Should have loaded new models (old cleared, new added)
-        expect(planner.state.models.length).toBeGreaterThanOrEqual(2);
+        // loadFromJSON appends — INITIAL model is still present alongside the new ones
+        expect(planner.state.models).toHaveLength(3);
+        expect(planner.state.models.some((m) => m.modelKey === 'INITIAL')).toBe(true);
         expect(planner.state.models.some((m) => m.modelKey === 'NEW_A')).toBe(true);
+        expect(planner.state.models.some((m) => m.modelKey === 'NEW_B')).toBe(true);
     });
 
     it('serializes scene with scale variations correctly', async () => {
