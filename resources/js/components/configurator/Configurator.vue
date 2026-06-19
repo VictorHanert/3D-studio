@@ -72,7 +72,7 @@ const loadConfiguration = async (configId: number): Promise<void> => {
     const config = configs.find((c: any) => c.id === configId);
 
     if (config && config.configuration_data) {
-        await planner.loadFromConfiguration({ models: config.configuration_data, timestamp: config.created_at });
+        await planner.loadFromConfiguration(config.configuration_data);
         showLoadModal.value = false;
         toastSuccess('Configuration loaded successfully!');
     } else {
@@ -83,8 +83,6 @@ const loadConfiguration = async (configId: number): Promise<void> => {
 const loadConfigByShareCode = async (code: string): Promise<void> => {
     const success = await planner.loadConfigurationByCode(code);
     if (success) {
-        planner.clearCanvasForNewConfig();
-        await planner.loadConfigurationByCode(code);
         toastSuccess('Configuration loaded from share code!');
     } else {
         toastError('Failed to load configuration from share code');
