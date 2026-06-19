@@ -18,7 +18,7 @@ services:
       - "8080:80"
     environment:
       APP_NAME: PlannerStudio
-      APP_ENV: production
+      APP_ENV: local
       APP_DEBUG: "false"
       APP_URL: http://localhost:8080
       APP_KEY: "${APP_KEY}"
