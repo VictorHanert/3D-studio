@@ -117,7 +117,8 @@ export class Planner {
             toRef(this.state, 'hoveredModel'),
             toRef(this.state, 'showControls'),
             toRef(this.state, 'controlPosition'),
-            this.snapManager
+            this.snapManager,
+            () => { this.isDirty = true; }
         );
         this.interactionManager.setupInteractions();
 

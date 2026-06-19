@@ -30,6 +30,7 @@ export class InteractionManager {
     private readonly controlPosition: Ref<Position2D>;
     private readonly groundHalf: number;
     private readonly snapManager: SnapManager | null;
+    private readonly onDragEnd: () => void;
     private collisionMode: CollisionMode = DEFAULT_COLLISION_MODE;
     private readonly collisionMetrics: CollisionMetrics = createEmptyCollisionMetrics();
 
@@ -39,6 +40,7 @@ export class InteractionManager {
     private readonly dragIntersection: THREE.Vector3;
     private readonly dragOffset: THREE.Vector3;
     private isDragging: boolean = false;
+    private hasMovedSinceClick: boolean = false;
     private selectedModel: ModelData | null = null;
     private hideControlsTimeout: ReturnType<typeof setTimeout> | null = null;
 
@@ -59,6 +61,7 @@ export class InteractionManager {
         showControls: Ref<boolean>,
         controlPosition: Ref<Position2D>,
         snapManager: SnapManager | null,
+        onDragEnd: () => void,
         groundHalf: number = SCENE_CONFIG.GROUND_HALF
     ) {
         this.camera = camera;
@@ -69,8 +72,9 @@ export class InteractionManager {
         this.hoveredModel = hoveredModel;
         this.showControls = showControls;
         this.controlPosition = controlPosition;
-        this.groundHalf = groundHalf;
         this.snapManager = snapManager;
+        this.onDragEnd = onDragEnd;
+        this.groundHalf = groundHalf;
 
         this.raycaster = new THREE.Raycaster();
         this.pointer = new THREE.Vector2();
@@ -103,6 +107,7 @@ export class InteractionManager {
 
             if (intersects.length > 0) {
                 this.isDragging = true;
+                this.hasMovedSinceClick = false;
                 this.controls.enabled = false;
 
                 this.showControls.value = false;
@@ -122,6 +127,7 @@ export class InteractionManager {
             this.updatePointerFromEvent(event);
 
             if (this.selectedModel && this.isDragging) {
+                this.hasMovedSinceClick = true;
                 this.raycaster.setFromCamera(this.pointer, this.camera);
                 this.raycaster.ray.intersectPlane(this.dragPlane, this.dragIntersection);
 
@@ -175,7 +181,12 @@ export class InteractionManager {
         };
 
         this.handlePointerUp = () => {
+            if (this.isDragging && this.hasMovedSinceClick) {
+                this.onDragEnd();
+            }
+
             this.isDragging = false;
+            this.hasMovedSinceClick = false;
             this.selectedModel = null;
             this.controls.enabled = true;
 
